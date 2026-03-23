@@ -8,9 +8,10 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon index.js",
-    "start": "npx prisma generate && node index.js",
+    "postinstall": "prisma generate",
+    "start": "node index.js",
     "dev:worker": "nodemon worker.js",
-    "start:worker": "npx prisma generate && node worker.js"
+    "start:worker": "node worker.js"
   },
   "dependencies": {
     "@clerk/clerk-sdk-node": "^4.13.23",
