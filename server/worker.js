@@ -1,10 +1,14 @@
-import 'dotenv/config'
-import { Worker } from 'bullmq';
-import { embedTexts, EMBED_CONFIG } from './src/services/embeddings.js';
-import { ensureCollection, upsertVectors, getCollectionName } from './src/services/qdrant.js';
-import { processPDFs } from './src/workers/pdf-worker.js';
-import { logVectorConfig } from './src/config/vector-config.js';
-import { updateDocumentStatus } from './src/services/documentService.js';
+import "dotenv/config";
+import { Worker } from "bullmq";
+import { logVectorConfig } from "./src/config/vector-config.js";
+import { updateDocumentStatus } from "./src/services/documentService.js";
+import { EMBED_CONFIG, embedTexts } from "./src/services/embeddings.js";
+import {
+  ensureCollection,
+  getCollectionName,
+  upsertVectors,
+} from "./src/services/qdrant.js";
+import { processPDFs } from "./src/workers/pdf-worker.js";
 
 const BATCH_SIZE = 50; // Reduced for better progress updates
 
@@ -12,9 +16,10 @@ const BATCH_SIZE = 50; // Reduced for better progress updates
 logVectorConfig();
 
 const worker = new Worker(
-  'document-processing-queue',
-  async job => {
-    const { documentId, userId, notebookId, appwriteFileId, fileName } = job.data;
+  "document-processing-queue",
+  async (job) => {
+    const { documentId, userId, notebookId, appwriteFileId, fileName } =
+      job.data;
 
     console.log(`\n📄 Processing document: ${fileName}`);
     console.log(`   Document ID: ${documentId}`);
@@ -23,7 +28,7 @@ const worker = new Worker(
 
     try {
       // 1. Update status to PROCESSING
-      await updateDocumentStatus(documentId, 'PROCESSING');
+      await updateDocumentStatus(documentId, "PROCESSING");
       await job.updateProgress(5);
 
       // 2. Get collection name for per-notebook isolation
@@ -35,8 +40,8 @@ const worker = new Worker(
 
       if (!chunks || chunks.length === 0) {
         console.warn(`⚠️  No chunks found for ${fileName}, marking as FAILED`);
-        await updateDocumentStatus(documentId, 'FAILED');
-        throw new Error('No text content extracted from PDF');
+        await updateDocumentStatus(documentId, "FAILED");
+        throw new Error("No text content extracted from PDF");
       }
 
       console.log(`   Extracted ${chunks.length} chunks`);
@@ -58,10 +63,18 @@ const worker = new Worker(
       for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
         const batchNum = Math.floor(i / BATCH_SIZE) + 1;
         const batch = chunks.slice(i, i + BATCH_SIZE);
-        const texts = batch.map(d => d.pageContent);
+        const texts = batch.map((d) => d.pageContent);
         const vectors = await embedTexts(texts);
 
-        await upsertVectors(collectionName, vectors, batch, batchNum, totalBatches, userId, documentId);
+        await upsertVectors(
+          collectionName,
+          vectors,
+          batch,
+          batchNum,
+          totalBatches,
+          userId,
+          documentId,
+        );
 
         // Update progress (25% to 90%)
         const progress = 25 + Math.round((batchNum / totalBatches) * 65);
@@ -69,7 +82,9 @@ const worker = new Worker(
       }
 
       // 7. Update status to INDEXED
-      await updateDocumentStatus(documentId, 'INDEXED', { chunkCount: chunks.length });
+      await updateDocumentStatus(documentId, "INDEXED", {
+        chunkCount: chunks.length,
+      });
       await job.updateProgress(100);
 
       console.log(`✅ Document ${fileName} indexed successfully!`);
@@ -79,15 +94,17 @@ const worker = new Worker(
         success: true,
         documentId,
         chunkCount: chunks.length,
-        collectionName
+        collectionName,
       };
-
     } catch (error) {
-      console.error(`❌ Error processing document ${documentId}:`, error.message);
+      console.error(
+        `❌ Error processing document ${documentId}:`,
+        error.message,
+      );
 
       // Update status to FAILED
-      await updateDocumentStatus(documentId, 'FAILED', {
-        errorMessage: error.message
+      await updateDocumentStatus(documentId, "FAILED", {
+        errorMessage: error.message,
       });
 
       throw error;
@@ -95,29 +112,31 @@ const worker = new Worker(
   },
   {
     connection: {
-      host: process.env.REDIS_HOST || "localhost",
-      port: parseInt(process.env.REDIS_PORT) || 6379,
-      password: process.env.REDIS_PASSWORD || undefined
+      host: process.env.REDISHOST || process.env.REDIS_HOST || "localhost",
+      port: parseInt(process.env.REDISPORT || process.env.REDIS_PORT) || 6379,
+      password:
+        process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || undefined,
     },
-    lockDuration: 600000,  // 10 minutes
-    lockRenewTime: 30000,  // 30 seconds
-    concurrency: 2,        // Process 2 documents at a time
-  }
+    lockDuration: 600000, // 10 minutes
+    lockRenewTime: 30000, // 30 seconds
+    concurrency: 2, // Process 2 documents at a time
+  },
 );
 
-worker.on('completed', job => {
+worker.on("completed", (job) => {
   console.log(`\n✅ Job ${job.id} completed successfully`);
 });
 
-worker.on('failed', (job, err) => {
+worker.on("failed", (job, err) => {
   console.error(`\n❌ Job ${job?.id} FAILED:`, err.message);
 });
 
-worker.on('error', err => {
-  console.error('Worker error:', err);
+worker.on("error", (err) => {
+  console.error("Worker error:", err);
 });
 
-console.log('🚀 Document processing worker started');
+console.log("🚀 Document processing worker started");
 console.log(`   Queue: document-processing-queue`);
-console.log(`   Redis: ${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`);
-
+console.log(
+  `   Redis: ${process.env.REDISHOST || process.env.REDIS_HOST || "localhost"}:${process.env.REDISPORT || process.env.REDIS_PORT || 6379}`,
+);
