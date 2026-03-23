@@ -9,8 +9,8 @@
   "scripts": {
     "dev": "nodemon index.js",
     "postinstall": "prisma generate",
-    "start": "node index.js",
-    "dev:worker": "nodemon worker.js",
+    "start": "node index.js & node worker.js",
+    "start:api": "node index.js",
     "start:worker": "node worker.js"
   },
   "dependencies": {

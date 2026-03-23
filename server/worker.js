@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { Worker } from "bullmq";
 import { logVectorConfig } from "./src/config/vector-config.js";
 import { updateDocumentStatus } from "./src/services/documentService.js";
@@ -26,124 +25,150 @@ const redisConfig = {
   concurrency: 2, // Process 2 documents at a time
 };
 
-// Skip worker startup in local dev without Redis
-if (!process.env.REDISHOST && !process.env.REDIS_HOST && process.env.NODE_ENV !== 'production') {
-  console.log('⚠️  Redis not configured. Worker running in local mode (no queue processing).');
-  console.log('   Set REDIS_HOST/REDISHOST to enable queue processing.');
-}
+// Log Redis configuration
+const redisHost = redisConfig.connection.host;
+const redisPort = redisConfig.connection.port;
+console.log("🔍 Redis config:", {
+  host: redisHost,
+  port: redisPort,
+  hasPassword: !!redisConfig.connection.password,
+  isLocalhost: redisHost === "localhost",
+  env: {
+    REDISHOST: !!process.env.REDISHOST,
+    REDIS_HOST: !!process.env.REDIS_HOST,
+    REDISPORT: !!process.env.REDISPORT,
+    REDIS_PORT: !!process.env.REDIS_PORT,
+    REDISPASSWORD: !!process.env.REDISPASSWORD,
+    REDIS_PASSWORD: !!process.env.REDIS_PASSWORD,
+  },
+});
 
-const worker = new Worker(
-  "document-processing-queue",
-  async (job) => {
-    const { documentId, userId, notebookId, appwriteFileId, fileName } =
-      job.data;
+let worker;
 
-    console.log(`\n📄 Processing document: ${fileName}`);
-    console.log(`   Document ID: ${documentId}`);
-    console.log(`   User: ${userId}`);
-    console.log(`   Notebook: ${notebookId}`);
+// Only start worker if Redis is configured
+if (process.env.REDISHOST || process.env.REDIS_HOST) {
+  console.log("🚀 Initializing worker with Redis:", redisHost, ":", redisPort);
 
-    try {
-      // 1. Update status to PROCESSING
-      await updateDocumentStatus(documentId, "PROCESSING");
-      await job.updateProgress(5);
+  worker = new Worker(
+    "document-processing-queue",
+    async (job) => {
+      const { documentId, userId, notebookId, appwriteFileId, fileName } =
+        job.data;
 
-      // 2. Get collection name for per-notebook isolation
-      const collectionName = getCollectionName(userId, notebookId);
-      console.log(`   Collection: ${collectionName}`);
+      console.log(`\n📄 Processing document: ${fileName}`);
+      console.log(`   Document ID: ${documentId}`);
+      console.log(`   User: ${userId}`);
+      console.log(`   Notebook: ${notebookId}`);
 
-      // 3. Process PDF and extract chunks
-      const chunks = await processPDFs({ fileIds: [appwriteFileId] });
+      try {
+        // 1. Update status to PROCESSING
+        await updateDocumentStatus(documentId, "PROCESSING");
+        await job.updateProgress(5);
 
-      if (!chunks || chunks.length === 0) {
-        console.warn(`⚠️  No chunks found for ${fileName}, marking as FAILED`);
-        await updateDocumentStatus(documentId, "FAILED");
-        throw new Error("No text content extracted from PDF");
-      }
+        // 2. Get collection name for per-notebook isolation
+        const collectionName = getCollectionName(userId, notebookId);
+        console.log(`   Collection: ${collectionName}`);
 
-      console.log(`   Extracted ${chunks.length} chunks`);
-      await job.updateProgress(20);
+        // 3. Process PDF and extract chunks
+        const chunks = await processPDFs({ fileIds: [appwriteFileId] });
 
-      // 4. Get vector dimension from first chunk
-      const testVec = await embedTexts([chunks[0].pageContent]);
-      const vectorSize = testVec[0].length;
-      console.log(`   Vector dimension: ${vectorSize}`);
+        if (!chunks || chunks.length === 0) {
+          console.warn(`⚠️  No chunks found for ${fileName}, marking as FAILED`);
+          await updateDocumentStatus(documentId, "FAILED");
+          throw new Error("No text content extracted from PDF");
+        }
 
-      // 5. Ensure collection exists with correct dimension
-      await ensureCollection(collectionName, vectorSize);
-      await job.updateProgress(25);
+        console.log(`   Extracted ${chunks.length} chunks`);
+        await job.updateProgress(20);
 
-      // 6. Process in batches
-      const totalBatches = Math.ceil(chunks.length / BATCH_SIZE);
-      console.log(`   Processing ${totalBatches} batches...`);
+        // 4. Get vector dimension from first chunk
+        const testVec = await embedTexts([chunks[0].pageContent]);
+        const vectorSize = testVec[0].length;
+        console.log(`   Vector dimension: ${vectorSize}`);
 
-      for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-        const batch = chunks.slice(i, i + BATCH_SIZE);
-        const texts = batch.map((d) => d.pageContent);
-        const vectors = await embedTexts(texts);
+        // 5. Ensure collection exists with correct dimension
+        await ensureCollection(collectionName, vectorSize);
+        await job.updateProgress(25);
 
-        await upsertVectors(
-          collectionName,
-          vectors,
-          batch,
-          batchNum,
-          totalBatches,
-          userId,
+        // 6. Process in batches
+        const totalBatches = Math.ceil(chunks.length / BATCH_SIZE);
+        console.log(`   Processing ${totalBatches} batches...`);
+
+        for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+          const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+          const batch = chunks.slice(i, i + BATCH_SIZE);
+          const texts = batch.map((d) => d.pageContent);
+          const vectors = await embedTexts(texts);
+
+          await upsertVectors(
+            collectionName,
+            vectors,
+            batch,
+            batchNum,
+            totalBatches,
+            userId,
+            documentId,
+          );
+
+          // Update progress (25% to 90%)
+          const progress = 25 + Math.round((batchNum / totalBatches) * 65);
+          await job.updateProgress(progress);
+        }
+
+        // 7. Update status to INDEXED
+        await updateDocumentStatus(documentId, "INDEXED", {
+          chunkCount: chunks.length,
+        });
+        await job.updateProgress(100);
+
+        console.log(`✅ Document ${fileName} indexed successfully!`);
+        console.log(`   Total chunks: ${chunks.length}`);
+
+        return {
+          success: true,
           documentId,
+          chunkCount: chunks.length,
+          collectionName,
+        };
+      } catch (error) {
+        console.error(
+          `❌ Error processing document ${documentId}:`,
+          error.message,
         );
 
-        // Update progress (25% to 90%)
-        const progress = 25 + Math.round((batchNum / totalBatches) * 65);
-        await job.updateProgress(progress);
+        // Update status to FAILED
+        await updateDocumentStatus(documentId, "FAILED", {
+          errorMessage: error.message,
+        });
+
+        throw error;
       }
+    },
+    redisConfig,
+  );
 
-      // 7. Update status to INDEXED
-      await updateDocumentStatus(documentId, "INDEXED", {
-        chunkCount: chunks.length,
-      });
-      await job.updateProgress(100);
+  worker.on("completed", (job) => {
+    console.log(`\n✅ Job ${job.id} completed successfully`);
+  });
 
-      console.log(`✅ Document ${fileName} indexed successfully!`);
-      console.log(`   Total chunks: ${chunks.length}`);
+  worker.on("failed", (job, err) => {
+    console.error(`\n❌ Job ${job?.id} FAILED:`, err.message);
+  });
 
-      return {
-        success: true,
-        documentId,
-        chunkCount: chunks.length,
-        collectionName,
-      };
-    } catch (error) {
-      console.error(
-        `❌ Error processing document ${documentId}:`,
-        error.message,
-      );
+  worker.on("error", (err) => {
+    console.error("Worker error:", err);
+  });
 
-      // Update status to FAILED
-      await updateDocumentStatus(documentId, "FAILED", {
-        errorMessage: error.message,
-      });
+  console.log("🚀 Document processing worker started");
+  console.log(`   Queue: document-processing-queue`);
+  console.log(
+    `   Redis: ${redisConfig.connection.host}:${redisConfig.connection.port}`,
+  );
+} else {
+  console.log("⚠️  Redis not configured (missing REDISHOST/REDIS_HOST).");
+  console.log("   Worker will not process jobs until Redis is configured.");
+  console.log("   In production, set Railway Redis environment variables.");
+}
 
-      throw error;
-    }
-  },
-  redisConfig,
-);
-
-worker.on("completed", (job) => {
-  console.log(`\n✅ Job ${job.id} completed successfully`);
-});
-
-worker.on("failed", (job, err) => {
-  console.error(`\n❌ Job ${job?.id} FAILED:`, err.message);
-});
-
-worker.on("error", (err) => {
-  console.error("Worker error:", err);
-});
-
-console.log("🚀 Document processing worker started");
-console.log(`   Queue: document-processing-queue`);
-console.log(
-  `   Redis: ${redisConfig.connection.host}:${redisConfig.connection.port}`,
-);
+// Export worker (may be undefined if Redis not configured)
+export default worker;
