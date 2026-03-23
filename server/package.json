@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
+    "postinstall": "prisma generate",
     "dev:worker": "nodemon worker.js",
     "start:worker": "node worker.js"
   },
