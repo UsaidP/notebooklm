@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String        @id @default(cuid())
+  clerkUserId  String        @unique
+  email        String        @unique
+  name         String?
+  imageUrl     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  chatSessions ChatSession[]
+  notebooks    Notebook[]
+
+  @@map("users")
+}
+
+model Notebook {
+  id           String        @id @default(cuid())
+  title        String
+  description  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  userId       String
+  chatSessions ChatSession[]
+  documents    Document[]
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notebooks")
+}
+
+model Document {
+  id          String         @id @default(cuid())
+  name        String
+  appwriteId  String         @unique
+  mimeType    String         @default("application/pdf")
+  sizeBytes   Int?
+  status      DocumentStatus @default(PENDING)
+  totalChunks Int?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  notebookId  String
+  notebook    Notebook       @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+model ChatSession {
+  id         String        @id @default(cuid())
+  title      String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  userId     String
+  notebookId String
+  messages   ChatMessage[]
+  notebook   Notebook      @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  role      MessageRole
+  content   String
+  sources   Json?
+  createdAt DateTime    @default(now())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messages")
+}
+
+enum DocumentStatus {
+  PENDING
+  QUEUED
+  PROCESSING
+  INDEXED
+  FAILED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}

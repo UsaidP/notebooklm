@@ -1,0 +1,46 @@
+services:
+  valkey:
+    image: valkey/valkey
+    ports:
+      - 6379:6379
+
+  qdrant:
+    image: qdrant/qdrant
+    ports:
+      - 6333:6333
+  
+  postgres_db:
+    image: postgres:15
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_DB: pdf_rag_db
+      POSTGRES_USER: pdf_user
+      POSTGRES_PASSWORD: vector
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 2s
+      retries: 20
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres_db
+
+
+
+  
+volumes:
+  postgres_data:   
