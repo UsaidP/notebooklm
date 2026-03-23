@@ -1,10 +1,22 @@
 import { Queue } from "bullmq";
 
-const queue = new Queue("document-processing-queue", {
+const redisConfig = {
   connection: {
     host: process.env.REDISHOST || process.env.REDIS_HOST || "localhost",
     port: parseInt(process.env.REDISPORT || process.env.REDIS_PORT) || 6379,
     password: process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || undefined
+  }
+};
+
+const queue = new Queue("document-processing-queue", redisConfig);
+
+// Graceful error handling for Redis connection
+queue.on("error", (err) => {
+  if (err.code === "ECONNREFUSED") {
+    console.warn("⚠️  Redis connection failed. Queue unavailable.");
+    console.warn("   Ensure Redis is running or set REDIS_HOST/REDISHOST.");
+  } else {
+    console.error("Queue error:", err);
   }
 });
 

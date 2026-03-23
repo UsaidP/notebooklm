@@ -15,6 +15,23 @@ const BATCH_SIZE = 50; // Reduced for better progress updates
 // Log configuration on startup
 logVectorConfig();
 
+const redisConfig = {
+  connection: {
+    host: process.env.REDISHOST || process.env.REDIS_HOST || "localhost",
+    port: parseInt(process.env.REDISPORT || process.env.REDIS_PORT) || 6379,
+    password: process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || undefined
+  },
+  lockDuration: 600000, // 10 minutes
+  lockRenewTime: 30000, // 30 seconds
+  concurrency: 2, // Process 2 documents at a time
+};
+
+// Skip worker startup in local dev without Redis
+if (!process.env.REDISHOST && !process.env.REDIS_HOST && process.env.NODE_ENV !== 'production') {
+  console.log('⚠️  Redis not configured. Worker running in local mode (no queue processing).');
+  console.log('   Set REDIS_HOST/REDISHOST to enable queue processing.');
+}
+
 const worker = new Worker(
   "document-processing-queue",
   async (job) => {
@@ -110,17 +127,7 @@ const worker = new Worker(
       throw error;
     }
   },
-  {
-    connection: {
-      host: process.env.REDISHOST || process.env.REDIS_HOST || "localhost",
-      port: parseInt(process.env.REDISPORT || process.env.REDIS_PORT) || 6379,
-      password:
-        process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || undefined,
-    },
-    lockDuration: 600000, // 10 minutes
-    lockRenewTime: 30000, // 30 seconds
-    concurrency: 2, // Process 2 documents at a time
-  },
+  redisConfig,
 );
 
 worker.on("completed", (job) => {
@@ -138,5 +145,5 @@ worker.on("error", (err) => {
 console.log("🚀 Document processing worker started");
 console.log(`   Queue: document-processing-queue`);
 console.log(
-  `   Redis: ${process.env.REDISHOST || process.env.REDIS_HOST || "localhost"}:${process.env.REDISPORT || process.env.REDIS_PORT || 6379}`,
+  `   Redis: ${redisConfig.connection.host}:${redisConfig.connection.port}`,
 );
