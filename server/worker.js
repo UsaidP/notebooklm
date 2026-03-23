@@ -96,7 +96,8 @@ const worker = new Worker(
   {
     connection: {
       host: process.env.REDIS_HOST || "localhost",
-      port: parseInt(process.env.REDIS_PORT) || 6379
+      port: parseInt(process.env.REDIS_PORT) || 6379,
+      password: process.env.REDIS_PASSWORD || undefined
     },
     lockDuration: 600000,  // 10 minutes
     lockRenewTime: 30000,  // 30 seconds

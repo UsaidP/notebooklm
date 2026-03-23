@@ -3,7 +3,8 @@ import { Queue } from "bullmq";
 const queue = new Queue("document-processing-queue", {
   connection: {
     host: process.env.REDIS_HOST || "localhost",
-    port: parseInt(process.env.REDIS_PORT) || 6379
+    port: parseInt(process.env.REDIS_PORT) || 6379,
+    password: process.env.REDIS_PASSWORD || undefined
   }
 });
 
