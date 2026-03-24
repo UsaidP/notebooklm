@@ -79,5 +79,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Set PORT environment variable and run migrations
-CMD ["sh", "-c", "npx prisma migrate deploy && PORT=3000 npm run start"]
+# Run migrations and start server on port 3000
+CMD ["sh", "-c", "npx prisma migrate deploy && npm run start -- -p 3000"]
