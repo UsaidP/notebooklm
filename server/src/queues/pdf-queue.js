@@ -1,5 +1,7 @@
 import { Queue } from "bullmq";
 
+let queue = null;
+
 const redisConfig = {
   connection: {
     host: process.env.REDISHOST || process.env.REDIS_HOST || "localhost",
@@ -8,17 +10,41 @@ const redisConfig = {
   }
 };
 
-const queue = new Queue("document-processing-queue", redisConfig);
+/**
+ * Get or create the queue (lazy initialization)
+ * Returns null if Redis is not configured
+ */
+function getQueue() {
+  if (!queue) {
+    // Only create queue if Redis is configured
+    if (process.env.REDISHOST || process.env.REDIS_HOST) {
+      try {
+        queue = new Queue("document-processing-queue", redisConfig);
 
-// Graceful error handling for Redis connection
-queue.on("error", (err) => {
-  if (err.code === "ECONNREFUSED") {
-    console.warn("⚠️  Redis connection failed. Queue unavailable.");
-    console.warn("   Ensure Redis is running or set REDIS_HOST/REDISHOST.");
-  } else {
-    console.error("Queue error:", err);
+        // Graceful error handling for Redis connection
+        queue.on("error", (err) => {
+          if (err.code === "ECONNREFUSED") {
+            console.warn("⚠️  Redis connection failed. Queue unavailable.");
+          } else {
+            console.error("Queue error:", err);
+          }
+        });
+
+        queue.on("closed", () => {
+          console.log("Queue connection closed");
+        });
+
+        console.log("✓ Document processing queue initialized");
+      } catch (error) {
+        console.warn("⚠️  Failed to initialize queue:", error.message);
+        queue = null;
+      }
+    } else {
+      console.warn("⚠️  Redis not configured (missing REDISHOST/REDIS_HOST). Queue disabled.");
+    }
   }
-});
+  return queue;
+}
 
 /**
  * Add a document processing job to the queue
@@ -28,10 +54,28 @@ queue.on("error", (err) => {
  * @param {string} jobData.notebookId - Notebook ID
  * @param {string} jobData.appwriteFileId - Appwrite file ID
  * @param {string} jobData.fileName - Original file name
- * @returns {Promise<Job>} The created job
+ * @returns {Promise<Job|null>} The created job or null if queue unavailable
  */
 async function addDocumentJob({ documentId, userId, notebookId, appwriteFileId, fileName }) {
-  return queue.add("process-document", {
+  const q = getQueue();
+  if (!q) {
+    console.warn("⚠️  Cannot add job: Queue not available. Processing synchronously.");
+    // Fall back to synchronous processing
+    const { processPDFs } = await import("../workers/pdf-worker.js");
+    const { updateDocumentStatus } = await import("../services/documentService.js");
+
+    try {
+      await updateDocumentStatus(documentId, "PROCESSING");
+      const chunks = await processPDFs({ fileIds: [appwriteFileId] });
+      await updateDocumentStatus(documentId, "INDEXED", { chunkCount: chunks?.length || 0 });
+      return { success: true, synchronous: true };
+    } catch (error) {
+      await updateDocumentStatus(documentId, "FAILED", { errorMessage: error.message });
+      throw error;
+    }
+  }
+
+  return q.add("process-document", {
     documentId,
     userId,
     notebookId,
@@ -59,8 +103,13 @@ async function addDocumentJob({ documentId, userId, notebookId, appwriteFileId, 
  */
 function addToQueue(fileIds) {
   console.warn('addToQueue is deprecated. Use addDocumentJob instead.');
-  return queue.add("file-upload", { fileIds });
+  const q = getQueue();
+  if (!q) {
+    console.warn("Queue not available");
+    return Promise.resolve(null);
+  }
+  return q.add("file-upload", { fileIds });
 }
 
-export { queue, addDocumentJob, addToQueue };
+export { queue, getQueue, addDocumentJob, addToQueue };
 export default addDocumentJob;

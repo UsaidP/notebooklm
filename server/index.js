@@ -18,6 +18,7 @@ import { prisma } from "./src/lib/prisma.js";
 // Phase 1: Auth & Notebook imports
 import { extractUserId, requireAuth } from "./src/middleware/auth.js";
 import { requireTenant } from "./src/middleware/tenantScope.js";
+import { addToQueue } from "./src/queues/pdf-queue.js";
 import { uploadPDF } from "./src/services/appwrite.js";
 import { embedQuery } from "./src/services/embeddings.js";
 import { asyncHandler } from "./src/utils/async-handler.js";
@@ -78,7 +79,8 @@ const redisConfig = {
   connection: {
     host: process.env.REDISHOST || process.env.REDIS_HOST || "localhost",
     port: parseInt(process.env.REDISPORT || process.env.REDIS_PORT) || 6379,
-    password: process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || undefined,
+    password:
+      process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || undefined,
   },
 };
 
@@ -327,13 +329,18 @@ app.get(
         health.services.redis = "up";
       } catch (error) {
         health.services.redis = "down";
-        health.status = "unhealthy";
+        // Don't mark as unhealthy if Redis is optional
+        console.warn("Redis health check failed:", error.message);
       }
     } else {
       health.services.redis = "not configured";
     }
 
-    const statusCode = health.status === "healthy" ? 200 : 503;
+    // Consider app healthy even without Redis (it's optional for basic functionality)
+    const statusCode =
+      health.services.database === "up" && health.services.qdrant === "up"
+        ? 200
+        : 503;
     res.status(statusCode).json(health);
   }),
 );
