@@ -18,12 +18,17 @@ const redisConfig = {
   connection: {
     host: process.env.REDISHOST || process.env.REDIS_HOST || "localhost",
     port: parseInt(process.env.REDISPORT || process.env.REDIS_PORT) || 6379,
-    password: process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || undefined
   },
   lockDuration: 600000, // 10 minutes
   lockRenewTime: 30000, // 30 seconds
   concurrency: 2, // Process 2 documents at a time
 };
+
+// Only add password if it exists (some Redis instances don't require auth)
+const password = process.env.REDISPASSWORD || process.env.REDIS_PASSWORD;
+if (password && password.trim() !== "") {
+  redisConfig.connection.password = password;
+}
 
 // Log Redis configuration
 const redisHost = redisConfig.connection.host;

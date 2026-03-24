@@ -89,10 +89,17 @@ function getRedisConfig() {
         connection: {
           host: host,
           port: parseInt(port, 10),
-          password: password || undefined,
         },
       };
-      console.log("✓ Redis configured:", { host, port: parseInt(port) });
+      // Only add password if it exists (some Redis instances don't require auth)
+      if (password && password.trim() !== "") {
+        redisConfig.connection.password = password;
+      }
+      console.log("✓ Redis configured:", {
+        host,
+        port: parseInt(port),
+        hasPassword: !!redisConfig.connection.password
+      });
     } else {
       console.log("⚠️  Redis not configured - running without job queue");
     }
