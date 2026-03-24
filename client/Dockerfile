@@ -19,6 +19,9 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci
 
+# Set placeholder DATABASE_URL for Prisma (needed for prisma generate)
+ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
+
 # Copy Prisma config and generate client
 COPY prisma.config.ts ./
 COPY prisma ./prisma/
@@ -30,7 +33,6 @@ COPY . .
 # Build the Next.js application
 # Set placeholder env vars needed for build (not used at runtime)
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 RUN npm run build
 
 # ==================================================================
@@ -46,6 +48,9 @@ WORKDIR /app
 # Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Set placeholder DATABASE_URL for Prisma (needed for prisma generate)
+ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 
 # Copy package files
 COPY package*.json ./
