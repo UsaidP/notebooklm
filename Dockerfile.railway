@@ -16,6 +16,9 @@ FROM base AS client-builder
 
 WORKDIR /app/client
 
+# Set placeholder DATABASE_URL for Next.js build (not used at runtime)
+ENV DATABASE_URL=postgresql://user:pass@localhost:5432/placeholder
+
 # Copy package files first for better caching
 COPY client/package*.json ./
 
