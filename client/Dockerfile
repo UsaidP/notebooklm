@@ -53,6 +53,11 @@ COPY package*.json ./
 # Install production dependencies only
 RUN npm ci --only=production
 
+# Copy Prisma schema and generate client (needed at runtime)
+COPY prisma.config.ts ./
+COPY prisma ./prisma/
+RUN npx prisma generate
+
 # Copy built client from builder
 COPY --from=client-builder /app/.next ./.next
 COPY --from=client-builder /app/public ./public
