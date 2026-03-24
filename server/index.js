@@ -13,6 +13,7 @@ import chatRoutes from "./src/api/routes/chat.js";
 import documentRoutes from "./src/api/routes/documents.js";
 import notebookRoutes from "./src/api/routes/notebook.js";
 import { EMBED_CONFIG, logVectorConfig } from "./src/config/vector-config.js";
+import { prisma } from "./src/lib/prisma.js";
 
 // Phase 1: Auth & Notebook imports
 import { extractUserId, requireAuth } from "./src/middleware/auth.js";
@@ -71,6 +72,15 @@ const llm = new ChatGroq({
   apiKey: process.env.GROQ_API_KEY,
   streaming: true,
 });
+
+// Redis configuration for health checks
+const redisConfig = {
+  connection: {
+    host: process.env.REDISHOST || process.env.REDIS_HOST || "localhost",
+    port: parseInt(process.env.REDISPORT || process.env.REDIS_PORT) || 6379,
+    password: process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || undefined,
+  },
+};
 
 // ── Upload ───────────────────────────────────────────────────────────────────
 
@@ -271,5 +281,61 @@ app.post(
 );
 
 // ────────────────────────────────────────────────────────────────────────────
+
+// Health check endpoint for Railway
+app.get(
+  "/health",
+  asyncHandler(async (req, res) => {
+    const health = {
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      services: {
+        api: "up",
+        database: "unknown",
+        qdrant: "unknown",
+        redis: "unknown",
+      },
+    };
+
+    // Check database
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      health.services.database = "up";
+    } catch (error) {
+      health.services.database = "down";
+      health.status = "unhealthy";
+    }
+
+    // Check Qdrant
+    try {
+      await qdrant.getCollections();
+      health.services.qdrant = "up";
+    } catch (error) {
+      health.services.qdrant = "down";
+      health.status = "unhealthy";
+    }
+
+    // Check Redis (if configured)
+    if (process.env.REDISHOST || process.env.REDIS_HOST) {
+      try {
+        const { Queue } = await import("bullmq");
+        const testQueue = new Queue("health-check", {
+          connection: redisConfig.connection,
+        });
+        await testQueue.ping();
+        await testQueue.close();
+        health.services.redis = "up";
+      } catch (error) {
+        health.services.redis = "down";
+        health.status = "unhealthy";
+      }
+    } else {
+      health.services.redis = "not configured";
+    }
+
+    const statusCode = health.status === "healthy" ? 200 : 503;
+    res.status(statusCode).json(health);
+  }),
+);
 
 app.listen(8000, () => console.log("Server started on PORT: 8000"));
