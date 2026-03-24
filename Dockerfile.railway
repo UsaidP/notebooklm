@@ -4,7 +4,7 @@
 FROM node:20-alpine AS base
 
 # Install dependencies needed for native modules
-RUN apk add --no-cache libc6-compat openssl-libs
+RUN apk add --no-cache libc6-compat openssl
 
 # Set working directory
 WORKDIR /app
