@@ -41,6 +41,9 @@ FROM base AS server-builder
 
 WORKDIR /app/server
 
+# Set placeholder DB_URL for Prisma generate (not used at runtime)
+ENV DB_URL=postgresql://user:pass@localhost:5432/placeholder
+
 # Copy Prisma config first (defines schema path)
 COPY server/prisma.config.ts ./
 
