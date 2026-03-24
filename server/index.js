@@ -348,7 +348,8 @@ app.get(
         const testQueue = new Queue("health-check", {
           connection: redisCfg.connection,
         });
-        await testQueue.ping();
+        // Use isReady() instead of ping() for BullMQ
+        await testQueue.isReady();
         await testQueue.close();
         health.services.redis = "up";
       } catch (error) {
