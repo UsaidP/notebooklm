@@ -41,15 +41,20 @@ FROM base AS server-builder
 
 WORKDIR /app/server
 
+# Copy Prisma config first (defines schema path)
+COPY server/prisma.config.ts ./
+
 # Copy package files
 COPY server/package*.json ./
 
 # Copy Prisma schema first (needed for postinstall script)
 COPY server/prisma ./prisma/
-COPY server/prisma.config.ts ./
 
 # Install dependencies (including devDependencies for Prisma)
 RUN npm ci
+
+# Generate Prisma client
+RUN npx prisma generate
 
 # Copy server source code
 COPY server/src ./src
