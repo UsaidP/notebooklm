@@ -44,13 +44,12 @@ WORKDIR /app/server
 # Copy package files
 COPY server/package*.json ./
 
-# Install dependencies (including devDependencies for Prisma)
-RUN npm ci
-
-# Copy Prisma schema and generate
+# Copy Prisma schema first (needed for postinstall script)
 COPY server/prisma ./prisma/
 COPY server/prisma.config.ts ./
-RUN npx prisma generate
+
+# Install dependencies (including devDependencies for Prisma)
+RUN npm ci
 
 # Copy server source code
 COPY server/src ./src
