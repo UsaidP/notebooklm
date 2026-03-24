@@ -28,7 +28,9 @@ RUN npx prisma generate
 COPY . .
 
 # Build the Next.js application
+# Set placeholder env vars needed for build (not used at runtime)
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 RUN npm run build
 
 # ==================================================================
