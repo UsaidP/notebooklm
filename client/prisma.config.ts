@@ -6,9 +6,10 @@ config({ path: ".env", override: false, debug: false })
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
-  // DATABASE_URL is only needed for migrations, not for prisma generate
-  // Use a placeholder URL for client build
+  migrations: {
+    path: "prisma/migrations",
+  },
   datasource: {
-    url: process.env.DATABASE_URL || "postgresql://user:pass@localhost:5432/db",
+    url: env("DATABASE_URL") || "postgresql://user:pass@localhost:5432/db",
   },
 })
