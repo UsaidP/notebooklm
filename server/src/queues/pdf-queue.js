@@ -1,46 +1,72 @@
 import { Queue } from "bullmq";
 
 let queue = null;
+let redisConfig = null;
 
-const redisConfig = {
-  connection: {
-    host: process.env.REDISHOST || process.env.REDIS_HOST || "localhost",
-    port: parseInt(process.env.REDISPORT || process.env.REDIS_PORT) || 6379,
-    password: process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || undefined
+/**
+ * Initialize Redis config only if environment variables are properly set
+ * Checks for Railway-style variables
+ */
+function initRedisConfig() {
+  const host = process.env.REDISHOST || process.env.REDIS_HOST;
+  const port = process.env.REDISPORT || process.env.REDIS_PORT;
+  const password = process.env.REDISPASSWORD || process.env.REDIS_PASSWORD;
+
+  // Only configure Redis if BOTH host and port are explicitly set
+  if (host && port) {
+    redisConfig = {
+      connection: {
+        host: host,
+        port: parseInt(port, 10),
+        password: password || undefined,
+      }
+    };
+    console.log("✓ Redis configured:", { host, port: parseInt(port), hasPassword: !!password });
+  } else {
+    console.log("⚠️  Redis not configured - running without job queue");
   }
-};
+
+  return redisConfig;
+}
 
 /**
  * Get or create the queue (lazy initialization)
  * Returns null if Redis is not configured
  */
 function getQueue() {
+  // Initialize config if not done yet
+  if (redisConfig === null) {
+    initRedisConfig();
+  }
+
+  // Return null if Redis not configured
+  if (!redisConfig) {
+    return null;
+  }
+
+  // Create queue if not exists
   if (!queue) {
-    // Only create queue if Redis is configured
-    if (process.env.REDISHOST || process.env.REDIS_HOST) {
-      try {
-        queue = new Queue("document-processing-queue", redisConfig);
+    try {
+      queue = new Queue("document-processing-queue", redisConfig);
 
-        // Graceful error handling for Redis connection
-        queue.on("error", (err) => {
-          if (err.code === "ECONNREFUSED") {
-            console.warn("⚠️  Redis connection failed. Queue unavailable.");
-          } else {
-            console.error("Queue error:", err);
-          }
-        });
+      // Graceful error handling for Redis connection
+      queue.on("error", (err) => {
+        if (err.code === "ECONNREFUSED") {
+          console.warn("⚠️  Redis connection failed. Queue unavailable.");
+          queue = null;
+        } else {
+          console.error("Queue error:", err);
+        }
+      });
 
-        queue.on("closed", () => {
-          console.log("Queue connection closed");
-        });
+      queue.on("closed", () => {
+        console.log("Queue connection closed");
+      });
 
-        console.log("✓ Document processing queue initialized");
-      } catch (error) {
-        console.warn("⚠️  Failed to initialize queue:", error.message);
-        queue = null;
-      }
-    } else {
-      console.warn("⚠️  Redis not configured (missing REDISHOST/REDIS_HOST). Queue disabled.");
+      console.log("✓ Document processing queue initialized");
+    } catch (error) {
+      console.warn("⚠️  Failed to initialize queue:", error.message);
+      queue = null;
     }
   }
   return queue;

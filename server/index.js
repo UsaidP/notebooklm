@@ -74,15 +74,31 @@ const llm = new ChatGroq({
   streaming: true,
 });
 
-// Redis configuration for health checks
-const redisConfig = {
-  connection: {
-    host: process.env.REDISHOST || process.env.REDIS_HOST || "localhost",
-    port: parseInt(process.env.REDISPORT || process.env.REDIS_PORT) || 6379,
-    password:
-      process.env.REDISPASSWORD || process.env.REDIS_PASSWORD || undefined,
-  },
-};
+// Redis configuration for health checks (lazy initialization)
+let redisConfig = null;
+
+function getRedisConfig() {
+  if (!redisConfig) {
+    const host = process.env.REDISHOST || process.env.REDIS_HOST;
+    const port = process.env.REDISPORT || process.env.REDIS_PORT;
+    const password = process.env.REDISPASSWORD || process.env.REDIS_PASSWORD;
+
+    // Only configure if BOTH host and port are explicitly set
+    if (host && port) {
+      redisConfig = {
+        connection: {
+          host: host,
+          port: parseInt(port, 10),
+          password: password || undefined,
+        },
+      };
+      console.log("✓ Redis configured:", { host, port: parseInt(port) });
+    } else {
+      console.log("⚠️  Redis not configured - running without job queue");
+    }
+  }
+  return redisConfig;
+}
 
 // ── Upload ───────────────────────────────────────────────────────────────────
 
@@ -318,11 +334,12 @@ app.get(
     }
 
     // Check Redis (if configured)
-    if (process.env.REDISHOST || process.env.REDIS_HOST) {
+    const redisCfg = getRedisConfig();
+    if (redisCfg) {
       try {
         const { Queue } = await import("bullmq");
         const testQueue = new Queue("health-check", {
-          connection: redisConfig.connection,
+          connection: redisCfg.connection,
         });
         await testQueue.ping();
         await testQueue.close();
