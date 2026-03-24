@@ -48,6 +48,8 @@ WORKDIR /app
 # Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 
 # Set placeholder DATABASE_URL for Prisma (needed for prisma generate)
 ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
@@ -85,4 +87,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Run migrations and start server on port 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && npm run start -- -p 3000"]
+# Use npx next start directly to ensure proper host binding
+CMD ["sh", "-c", "npx prisma migrate deploy && npx next start -H 0.0.0.0 -p 3000"]
