@@ -69,17 +69,11 @@ COPY --from=client-builder /app/.next ./.next
 COPY --from=client-builder /app/public ./public
 COPY --from=client-builder /app/next.config.ts ./
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && adduser -S nodejs -u 1001
-RUN chown -R nodejs:nodejs /app
-
-USER nodejs
-
 EXPOSE 3000
 
 # Health check - use 0.0.0.0 for Railway compatibility
 HEALTHCHECK --interval=30s --timeout=3s --start-period=90s --retries=3 \
   CMD node -e "require('http').get('http://0.0.0.0:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Run migrations and start Next.js server
-CMD ["sh", "-c", "npx prisma migrate deploy && exec npx next start -H 0.0.0.0 -p 3000"]
+# Run migrations and start Next.js server with debugging
+CMD ["sh", "-c", "echo '=== Starting container ===' && echo 'Running migrations...' && npx prisma migrate deploy && echo 'Migrations complete!' && echo 'Starting Next.js...' && exec npx next start -H 0.0.0.0 -p 3000"]
