@@ -80,4 +80,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Run migrations and start server on port 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && npm run start -- -p 3000"]
+# Reset database and apply fresh migration
+CMD ["sh", "-c", "npx prisma migrate reset --force --skip-seed && npm run start -- -p 3000"]
