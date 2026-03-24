@@ -82,9 +82,9 @@ USER nodejs
 # Expose port 3000 (Railway default)
 EXPOSE 3000
 
-# Health check
+# Health check - use 0.0.0.0 for Railway compatibility
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD node -e "require('http').get('http://0.0.0.0:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Run migrations and start server on port 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && npx next start -H 0.0.0.0 -p 3000"]
+# Run migrations and start server with debugging
+CMD ["sh", "-c", "echo 'Running migrations...' && npx prisma migrate deploy && echo 'Starting Next.js server...' && exec npx next start -H 0.0.0.0 -p 3000"]
