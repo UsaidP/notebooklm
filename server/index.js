@@ -362,4 +362,44 @@ app.get(
   }),
 );
 
+// ── Serve Next.js Client in Production ───────────────────────────────────────
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+let nextApp;
+let nextHandle;
+
+if (process.env.NODE_ENV === "production") {
+  try {
+    const nextDir = join(__dirname, "..", "client");
+    const nextImport = await import("next");
+    const createServer = nextImport.default;
+
+    nextApp = createServer({
+      dir: nextDir,
+      dev: false,
+    });
+    nextHandle = nextApp.getRequestHandler();
+
+    await nextApp.prepare();
+    console.log("✓ Next.js client ready");
+  } catch (error) {
+    console.error("Failed to initialize Next.js:", error);
+  }
+}
+
+app.all(
+  "/((?!api|search|chat|agent|upload).*)",
+  asyncHandler(async (req, res) => {
+    if (!nextHandle) {
+      return res.status(500).send("Next.js not initialized");
+    }
+    await nextHandle(req, res);
+  }),
+);
+
+// ── Start Server ─────────────────────────────────────────────────────────────
+
 app.listen(8000, () => console.log("Server started on PORT: 8000"));
