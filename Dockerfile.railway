@@ -93,11 +93,12 @@ RUN cd server && npm ci --only=production && cd ..
 COPY server/prisma ./server/prisma/
 COPY --from=server-builder /app/server/generated/prisma ./server/generated/prisma
 
-# Copy built client from builder (entire .next folder)
-COPY --from=client-builder /app/client/.next ./client/.next
-COPY --from=client-builder /app/client/public ./client/public
-COPY --from=client-builder /app/client/next.config.ts ./client/
-COPY --from=client-builder /app/client/package.json ./client/
+# Copy built client from builder (for potential future static serving)
+# Currently client is served separately
+# COPY --from=client-builder /app/client/.next ./client/.next
+# COPY --from=client-builder /app/client/public ./client/public
+# COPY --from=client-builder /app/client/next.config.ts ./client/
+# COPY --from=client-builder /app/client/package.json ./client/
 
 # Copy server source
 COPY server/src ./server/src
