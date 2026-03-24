@@ -63,7 +63,7 @@ COPY server/worker.js ./
 FROM base AS production
 
 # Install production runtime dependencies
-RUN apk add --no-cache openssl-libs
+RUN apk add --no-cache openssl
 
 WORKDIR /app
 
