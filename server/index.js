@@ -344,17 +344,10 @@ app.get(
     const redisCfg = getRedisConfig();
     if (redisCfg) {
       try {
-        const { Queue } = await import("bullmq");
-        const testQueue = new Queue("health-check", {
-          connection: redisCfg.connection,
-        });
-        // Check if queue is connected by waiting for ready state
-        await new Promise((resolve, reject) => {
-          testQueue.on("ready", resolve);
-          testQueue.on("error", reject);
-          setTimeout(() => reject(new Error("Connection timeout")), 3000);
-        });
-        await testQueue.close();
+        const Redis = (await import("ioredis")).default;
+        const redis = new Redis(redisCfg.connection);
+        await redis.ping();
+        await redis.quit();
         health.services.redis = "up";
       } catch (error) {
         health.services.redis = "down";
