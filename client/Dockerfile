@@ -72,12 +72,12 @@ RUN chown -R nodejs:nodejs /app
 
 USER nodejs
 
-# Expose port
+# Expose port 3000 (Railway default)
 EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Run migrations and start server
-CMD ["sh", "-c", "npx prisma migrate deploy && npm run start"]
+# Set PORT environment variable and run migrations
+CMD ["sh", "-c", "npx prisma migrate deploy && PORT=3000 npm run start"]
