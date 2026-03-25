@@ -69,7 +69,9 @@ COPY --from=client-builder /app/.next ./.next
 COPY --from=client-builder /app/public ./public
 COPY --from=client-builder /app/next.config.ts ./
 
-EXPOSE ${PORT:-3000}
+EXPOSE 3000
 
-# Run migrations and start Next.js server
-CMD ["sh", "-c", "echo '=== Starting container ===' && echo 'Running migrations...' && npx prisma migrate deploy; echo 'Migration exit code: '$? && echo 'Starting Next.js on port '$PORT'...' && exec npx next start -H 0.0.0.0 -p ${PORT:-3000}"]
+# Create entrypoint script for better logging
+RUN printf '#!/bin/sh\necho "=== Starting container ==="\necho "PORT env: $PORT"\necho "Running migrations..."\nnpx prisma migrate deploy\necho "Migration exit code: $?"\necho "Starting Next.js on port 3000..."\nexec npx next start -H 0.0.0.0 -p 3000' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+CMD ["/entrypoint.sh"]
