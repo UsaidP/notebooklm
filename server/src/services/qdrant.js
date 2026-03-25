@@ -2,7 +2,10 @@ import { QdrantClient } from "@qdrant/js-client-rest";
 import { randomUUID } from "crypto";
 import { EMBED_CONFIG, getCollectionConfig, validateVectorDimension } from "../config/vector-config.js";
 
-const client = new QdrantClient({ url: process.env.QDRANT_URL, apiKey: process.env.QDRANT_KEY });
+const client = new QdrantClient({
+  url: process.env.QDRANT_URL || "http://localhost:6333",
+  apiKey: process.env.QDRANT_KEY,
+});
 
 /**
  * Generate collection name for per-notebook isolation
