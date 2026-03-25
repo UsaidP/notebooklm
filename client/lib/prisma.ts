@@ -47,3 +47,4 @@ if (process.env.NODE_ENV !== "production") {
   // Access to initialize for dev
   getPrismaClient()
 }
+
