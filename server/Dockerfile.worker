@@ -4,5 +4,4 @@ COPY server/package*.json ./
 RUN npm ci --omit=dev
 COPY server/ .
 RUN npx prisma generate
-EXPOSE 5000
-CMD ["node", "src/server.js"]
+CMD ["node", "src/worker.js"]

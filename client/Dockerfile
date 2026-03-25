@@ -1,84 +1,24 @@
-FROM node:20-alpine AS base
-
-# Install dependencies
-RUN apk add --no-cache libc6-compat openssl
-
-# Set working directory
+FROM node:20-alpine AS deps
 WORKDIR /app
-
-# ==================================================================
-# Stage 1: Build the Client (Next.js)
-# ==================================================================
-FROM base AS client-builder
-
-WORKDIR /app
-
-# Copy package files first for better caching
-COPY package*.json ./
-
-# Install dependencies
+COPY client/package*.json ./
 RUN npm ci
 
-# Copy Prisma config and generate client
-COPY prisma.config.ts ./
-COPY prisma ./prisma/
-RUN npx prisma generate
-
-# Copy client source code
-COPY . .
-
-# Build the Next.js application
-ENV NEXT_TELEMETRY_DISABLED=1
+FROM deps AS builder
+COPY client/ .
+# Inject build-time env vars
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_CLERK_SIGN_IN_URL
+ARG NEXT_PUBLIC_CLERK_SIGN_UP_URL
+ARG NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL
+ARG NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL
 RUN npm run build
 
-# ==================================================================
-# Stage 2: Production Image
-# ==================================================================
-FROM base AS production
-
-# Install production runtime dependencies
-RUN apk add --no-cache openssl
-
+FROM node:20-alpine AS runner
 WORKDIR /app
-
-# Set production environment
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-
-# Set placeholder DATABASE_URL for Prisma (needed for prisma generate)
-ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
-
-# Copy package files
-COPY package*.json ./
-
-# Install production dependencies only
-RUN npm ci --only=production
-
-# Copy Prisma schema and generate client
-COPY prisma.config.ts ./
-COPY prisma ./prisma/
-RUN npx prisma generate
-
-# Copy built client from builder
-COPY --from=client-builder /app/.next ./.next
-COPY --from=client-builder /app/public ./public
-COPY --from=client-builder /app/package.json ./
-COPY --from=client-builder /app/next.config.ts ./
-
-# Move dotenv to production dependencies check
-RUN npm pkg set scripts.start="next start"
-
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 EXPOSE 3000
-
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-ENV NODE_ENV=production
-
-# Default Clerk config (can be overridden by Railway env vars)
-ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=""
-ENV CLERK_SECRET_KEY=""
-ENV NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
-ENV NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
-
-# Run migrations and start
-CMD ["sh", "-c", "echo '=== Starting container ===' && echo 'Running migrations...' && npx prisma migrate deploy && echo 'Migration done, exit code:' $? && echo 'Starting Next.js...' && npx next start -H 0.0.0.0 -p 3000"]
+CMD ["node", "server.js"]
