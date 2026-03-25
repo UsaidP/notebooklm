@@ -76,4 +76,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=90s --retries=3 \
   CMD node -e "require('http').get('http://0.0.0.0:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Run migrations and start Next.js server with better error handling
-CMD ["sh", "-c", "set -e; echo '=== Starting container ==='; echo 'Running migrations...'; npx prisma migrate deploy; echo 'Migrations complete!'; echo 'Starting Next.js...'; exec npm run start -- -H 0.0.0.0 -p 3000"]
+# Run migrations and start Next.js server with better error handling
+CMD ["sh", "-c", "echo '=== Starting container ===' && echo 'Running migrations...' && npx prisma migrate deploy && echo 'Migrations complete!' && echo 'Starting Next.js...' && npx next start -H 0.0.0.0 -p 3000"]
