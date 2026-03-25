@@ -65,14 +65,14 @@ COPY --from=client-builder /app/public ./public
 COPY --from=client-builder /app/package.json ./
 COPY --from=client-builder /app/next.config.ts ./
 
+# Move dotenv to production dependencies check
+RUN npm pkg set scripts.start="next start"
+
 EXPOSE 3000
 
-# Set environment for Next.js
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV NODE_ENV=production
 
-# Create entrypoint script with error capture
-RUN printf '#!/bin/sh\necho "=== Starting container ==="\necho "PORT: $PORT"\necho "HOSTNAME: $HOSTNAME"\necho "Running migrations..."\nnpx prisma migrate deploy\necho "Migration exit code: $?"\necho "Starting Next.js..."\nexec npx next start -H 0.0.0.0 -p 3000 2>&1 | tee /var/log/nextjs.log' > /entrypoint.sh && chmod +x /entrypoint.sh
-
-CMD ["/entrypoint.sh"]
+# Run migrations and start
+CMD ["sh", "-c", "echo '=== Starting container ===' && echo 'Running migrations...' && npx prisma migrate deploy && echo 'Migration done, exit code:' $? && echo 'Starting Next.js...' && npx next start -H 0.0.0.0 -p 3000"]
