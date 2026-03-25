@@ -68,10 +68,11 @@ RUN npx prisma generate
 COPY --from=client-builder /app/.next ./.next
 COPY --from=client-builder /app/public ./public
 COPY --from=client-builder /app/next.config.ts ./
+COPY --from=client-builder /app/package.json ./
 
 EXPOSE 3000
 
 # Create entrypoint script for better logging
-RUN printf '#!/bin/sh\necho "=== Starting container ==="\necho "PORT env: $PORT"\necho "Running migrations..."\nnpx prisma migrate deploy\necho "Migration exit code: $?"\necho "Starting Next.js on port 3000..."\nexec npx next start -H 0.0.0.0 -p 3000' > /entrypoint.sh && chmod +x /entrypoint.sh
+RUN printf '#!/bin/sh\necho "=== Starting container ==="\necho "PORT env: $PORT"\nDEFAULT_PORT=3000\nACTUAL_PORT=${PORT:-$DEFAULT_PORT}\necho "Running migrations..."\nnpx prisma migrate deploy\necho "Migration exit code: $?"\necho "Starting Next.js standalone server on port $ACTUAL_PORT..."\ncd /app && PORT=$ACTUAL_PORT node .next/standalone/server.js' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 CMD ["/entrypoint.sh"]
