@@ -65,14 +65,14 @@ COPY prisma ./prisma/
 RUN npx prisma generate
 
 # Copy built client from builder
-COPY --from=client-builder /app/.next ./.next
-COPY --from=client-builder /app/public ./public
-COPY --from=client-builder /app/next.config.ts ./
+COPY --from=client-builder /app/.next/standalone ./standalone
+COPY --from=client-builder /app/.next/static ./standalone/.next/static
+COPY --from=client-builder /app/public ./standalone/public
 COPY --from=client-builder /app/package.json ./
 
 EXPOSE 3000
 
 # Create entrypoint script for better logging
-RUN printf '#!/bin/sh\necho "=== Starting container ==="\necho "PORT env: $PORT"\nDEFAULT_PORT=3000\nACTUAL_PORT=${PORT:-$DEFAULT_PORT}\necho "Running migrations..."\nnpx prisma migrate deploy\necho "Migration exit code: $?"\necho "Starting Next.js standalone server on port $ACTUAL_PORT..."\ncd /app && PORT=$ACTUAL_PORT node .next/standalone/server.js' > /entrypoint.sh && chmod +x /entrypoint.sh
+RUN printf '#!/bin/sh\necho "=== Starting container ==="\necho "PORT env: $PORT"\nDEFAULT_PORT=3000\nACTUAL_PORT=${PORT:-$DEFAULT_PORT}\necho "Running migrations..."\nnpx prisma migrate deploy\necho "Migration exit code: $?"\necho "Starting Next.js standalone server on port $ACTUAL_PORT..."\ncd /app/standalone && PORT=$ACTUAL_PORT node server.js' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 CMD ["/entrypoint.sh"]
