@@ -10,9 +10,9 @@ const isAuthRoute = createRouteMatcher([
   "/sign-up(.*)",
 ])
 
-export default clerkMiddleware((auth, req) => {
+export default clerkMiddleware(async (auth, req) => {
   // Safely check authentication - won't crash if Clerk not configured
-  const { userId, redirectToSignIn } = auth()
+  const { userId, redirectToSignIn } = await auth()
 
   // If user is signed in and trying to access auth routes, redirect to dashboard
   if (userId && isAuthRoute(req)) {
