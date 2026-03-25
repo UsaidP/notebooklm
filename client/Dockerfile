@@ -47,8 +47,8 @@ WORKDIR /app
 # Set production environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+# PORT will be set by Railway at runtime
 
 # Set placeholder DATABASE_URL for Prisma (needed for prisma generate)
 ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
@@ -69,11 +69,11 @@ COPY --from=client-builder /app/.next ./.next
 COPY --from=client-builder /app/public ./public
 COPY --from=client-builder /app/next.config.ts ./
 
-EXPOSE 3000
+EXPOSE ${PORT:-3000}
 
-# Health check - use 0.0.0.0 for Railway compatibility
+# Health check - use dynamic PORT for Railway compatibility
 HEALTHCHECK --interval=30s --timeout=3s --start-period=90s --retries=3 \
-  CMD node -e "require('http').get('http://0.0.0.0:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+  CMD node -e "const http = require('http'); const port = process.env.PORT || 3000; http.get('http://0.0.0.0:' + port + '/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)}).on('error', () => process.exit(1))"
 
 # Run migrations and start Next.js server
-CMD ["sh", "-c", "echo '=== Starting container ===' && echo 'Running migrations...' && npx prisma migrate deploy; echo 'Migration exit code: '$? && echo 'Starting Next.js...' && exec npx next start -H 0.0.0.0 -p 3000"]
+CMD ["sh", "-c", "echo '=== Starting container ===' && echo 'Running migrations...' && npx prisma migrate deploy; echo 'Migration exit code: '$? && echo 'Starting Next.js on port '$PORT'...' && exec npx next start -H 0.0.0.0 -p ${PORT:-3000}"]
