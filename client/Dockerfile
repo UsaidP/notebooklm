@@ -20,7 +20,7 @@ COPY package*.json ./
 RUN npm ci
 
 # Set placeholder DATABASE_URL for Prisma (needed for prisma generate)
-ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
+
 
 # Copy Prisma config and generate client
 COPY prisma.config.ts ./
