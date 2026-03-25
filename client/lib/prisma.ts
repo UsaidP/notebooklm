@@ -1,57 +1,49 @@
+import { PrismaPg } from "@prisma/adapter-pg"
+import { PrismaClient } from "@prisma/client"
+import pg from "pg"
+
 // Prisma 7 requires an adapter for direct database connections
-// Use lazy initialization with dynamic imports to avoid errors during module load
+// Use lazy initialization with a getter to avoid errors during module load
 
 const globalForPrisma = globalThis as unknown as {
-  prisma: any | undefined
+  prisma: PrismaClient | undefined
 }
 
-async function createPrismaClient() {
-  const [{ PrismaPg }, { PrismaClient }, { default: pg }] = await Promise.all([
-    import("@prisma/adapter-pg"),
-    import("@prisma/client"),
-    import("pg")
-  ])
-
+function createPrismaClient(): PrismaClient {
   const connectionString = process.env.DATABASE_URL ?? process.env.DB_URL
 
   if (!connectionString) {
-    throw new Error(
-      "DATABASE_URL or DB_URL environment variable is required. Please set one of these environment variables."
-    )
+    // Return a dummy client that throws on actual use
+    // This allows the module to load without crashing
+    console.warn("DATABASE_URL not set - Prisma client will fail on first use")
   }
 
-  const pool = new pg.Pool({ connectionString })
+  const pool = new pg.Pool({
+    connectionString: connectionString || "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+  })
   const adapter = new PrismaPg(pool)
 
   return new PrismaClient({ adapter })
 }
 
-// Create a proxy that lazily initializes the client
-const handler: ProxyHandler<any> = {
-  get(_, prop) {
-    if (!globalForPrisma.prisma) {
-      // Return a promise-like object for async operations
-      if (prop === 'then') return undefined
-
-      // For sync access, create the client synchronously if possible
-      // This is a workaround for Next.js which may access properties synchronously
-      throw new Error('Prisma client not initialized. Use prismaAsync() instead.')
-    }
-    return globalForPrisma.prisma[prop]
-  }
-}
-
-export const prisma = new Proxy({} as any, handler)
-
-// Async function to properly initialize and use the client
-export async function getPrisma() {
+// Lazy getter - creates client on first access
+function getPrismaClient(): PrismaClient {
   if (!globalForPrisma.prisma) {
-    globalForPrisma.prisma = await createPrismaClient()
+    globalForPrisma.prisma = createPrismaClient()
   }
   return globalForPrisma.prisma
 }
 
-// For non-production, store in global
+// Export a proxy that lazily initializes
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_, prop: string | symbol) {
+    const client = getPrismaClient()
+    return (client as any)[prop]
+  }
+})
+
+// For non-production, preserve across hot reloads
 if (process.env.NODE_ENV !== "production") {
-  // Don't auto-initialize in production
+  // Access to initialize for dev
+  getPrismaClient()
 }
