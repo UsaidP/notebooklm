@@ -24,8 +24,18 @@ function createPrismaClient(): PrismaClient {
   return new PrismaClient({ adapter })
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient()
+// Lazy getter - only creates client when first accessed
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_, prop) {
+    if (!globalForPrisma.prisma) {
+      globalForPrisma.prisma = createPrismaClient()
+    }
+    return (globalForPrisma.prisma as any)[prop]
+  }
+})
 
+// For non-production, store in global
 if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma
+  // Access prisma to initialize it for hot reload preservation
+  // This is intentional - we want it created once in dev
 }
