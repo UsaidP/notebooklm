@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copy package files and install dependencies
 COPY server/package*.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps --retry 3
 
 # Copy all the backend source code
 COPY server/ .
