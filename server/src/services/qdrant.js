@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { EMBED_CONFIG, getCollectionConfig, validateVectorDimension } from "../config/vector-config.js";
 
 const client = new QdrantClient({
-  url: process.env.QDRANT_URL || "http://localhost:6333",
+  url: process.env.QDRANT_URL?.trim() || "http://localhost:6333",
   apiKey: process.env.QDRANT_KEY,
 });
 
