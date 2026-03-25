@@ -64,7 +64,7 @@ const upload = multer({ storage: storage });
 // ── Shared singletons ────────────────────────────────────────────────────────
 
 const qdrant = new QdrantClient({
-  url: process.env.QDRANT_URL || "http://localhost:6333",
+  url: process.env.QDRANT_URL?.trim() || "http://localhost:6333",
 });
 
 const llm = new ChatGroq({
