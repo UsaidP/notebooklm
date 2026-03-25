@@ -74,5 +74,11 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV NODE_ENV=production
 
+# Default Clerk config (can be overridden by Railway env vars)
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=""
+ENV CLERK_SECRET_KEY=""
+ENV NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
+ENV NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
+
 # Run migrations and start
 CMD ["sh", "-c", "echo '=== Starting container ===' && echo 'Running migrations...' && npx prisma migrate deploy && echo 'Migration done, exit code:' $? && echo 'Starting Next.js...' && npx next start -H 0.0.0.0 -p 3000"]
