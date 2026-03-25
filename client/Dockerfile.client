@@ -1,11 +1,13 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY client/package*.json ./
+# ❌ Removed "client/" - Docker is already inside the client folder!
+COPY package*.json ./
 RUN npm ci
 
 FROM deps AS builder
 WORKDIR /app
-COPY client/ .
+# ❌ Removed "client/" - Copy everything from the current directory
+COPY . .
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_CLERK_SIGN_IN_URL
