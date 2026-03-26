@@ -955,6 +955,7 @@ export function ChatColumn({
               background: "var(--bg-primary)",
               border: "1px solid " + (error ? "var(--destructive)" : "var(--border-default)"),
               transition: "all 0.15s",
+
             }}
           >
             <textarea
@@ -982,6 +983,7 @@ export function ChatColumn({
                 maxHeight: 120,
                 lineHeight: 1.5,
                 fontFamily: "inherit",
+                justifyContent: "center"
               }}
             />
 
