@@ -29,7 +29,7 @@ const app = express()
 const ALLOWED_ORIGINS = [
   "http://localhost:3000",
   "https://worthy-smile-production.up.railway.app",
-  "https://notebooklm-client-production.up.railway.app",
+  "https://notebooklm-production-3952.up.railway.app",
   process.env.CLIENT_URL,
 ].filter(Boolean)
 
