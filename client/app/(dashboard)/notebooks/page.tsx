@@ -22,26 +22,34 @@ interface NotebookWithCounts {
  * Fetch notebooks from backend API with Clerk JWT token
  */
 async function getNotebooks(): Promise<NotebookWithCounts[]> {
-  const { getToken } = await auth()
-  const token = await getToken()
+  try {
+    const { getToken } = await auth()
+    const token = await getToken()
 
-  const res = await fetch(`${API_BASE_URL}/api/notebooks`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    cache: "no-store",
-  })
+    const res = await fetch(`${API_BASE_URL}/api/notebooks`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    })
 
-  if (!res.ok) {
-    if (res.status === 401) {
-      redirect("/sign-in")
+    if (!res.ok) {
+      if (res.status === 401) {
+        redirect("/sign-in")
+      }
+      // Log the error to your Railway console instead of crashing the user's page
+      console.error(`Backend returned status ${res.status}`)
+      return []
     }
-    throw new Error(`Failed to fetch notebooks: ${res.status}`)
-  }
 
-  const data = await res.json()
-  return data.data || []
+    const data = await res.json()
+    return data.data || []
+  } catch (error) {
+    // Catches network errors (e.g., if the backend is completely unreachable)
+    console.error("Failed to fetch notebooks:", error)
+    return []
+  }
 }
 
 export default async function NotebooksPage() {
@@ -231,7 +239,7 @@ export default async function NotebooksPage() {
               title={notebook.title}
               description={notebook.description}
               updatedAt={notebook.updatedAt}
-              documentCount={notebook._count.documents}
+              documentCount={notebook._count?.documents || 0}
             />
           ))}
         </div>
