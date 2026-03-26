@@ -15,3 +15,4 @@ npm run start:server &
 # Wait for any process to exit.
 wait -n
 exit $?
+
