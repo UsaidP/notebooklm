@@ -10,7 +10,7 @@
     "dev": "nodemon index.js",
     "postinstall": "echo 'Prisma generate skipped - handled in Dockerfile'",
     "start": "node index.js & node worker.js",
-    "start:api": "node index.js",
+    "start:server": "node index.js",
     "start:worker": "node worker.js"
   },
   "dependencies": {
