@@ -1,44 +1,60 @@
-import "dotenv/config";
-import { tool } from "@langchain/core/tools";
-import { ChatGroq } from "@langchain/groq";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { QdrantClient } from "@qdrant/js-client-rest";
-import cors from "cors";
-import express from "express";
-import multer from "multer";
-import { z } from "zod";
+import "dotenv/config"
+import { tool } from "@langchain/core/tools"
+import { ChatGroq } from "@langchain/groq"
+import { createReactAgent } from "@langchain/langgraph/prebuilt"
+import { QdrantClient } from "@qdrant/js-client-rest"
+import cors from "cors"
+import express from "express"
+import multer from "multer"
+import { z } from "zod"
 // Phase 3: Chat routes
-import chatRoutes from "./src/api/routes/chat.js";
+import chatRoutes from "./src/api/routes/chat.js"
 // Phase 2: Document routes
-import documentRoutes from "./src/api/routes/documents.js";
-import notebookRoutes from "./src/api/routes/notebook.js";
-import { EMBED_CONFIG, logVectorConfig } from "./src/config/vector-config.js";
-import { prisma } from "./src/lib/prisma.js";
+import documentRoutes from "./src/api/routes/documents.js"
+import notebookRoutes from "./src/api/routes/notebook.js"
+import { EMBED_CONFIG, logVectorConfig } from "./src/config/vector-config.js"
+import { prisma } from "./src/lib/prisma.js"
 
 // Phase 1: Auth & Notebook imports
-import { extractUserId, requireAuth } from "./src/middleware/auth.js";
-import { requireTenant } from "./src/middleware/tenantScope.js";
-import { addToQueue } from "./src/queues/pdf-queue.js";
-import { uploadPDF } from "./src/services/appwrite.js";
-import { embedQuery } from "./src/services/embeddings.js";
-import { asyncHandler } from "./src/utils/async-handler.js";
+import { extractUserId, requireAuth } from "./src/middleware/auth.js"
+import { requireTenant } from "./src/middleware/tenantScope.js"
+import { addToQueue } from "./src/queues/pdf-queue.js"
+import { uploadPDF } from "./src/services/appwrite.js"
+import { embedQuery } from "./src/services/embeddings.js"
+import { asyncHandler } from "./src/utils/async-handler.js"
 
-const app = express();
+const app = express()
 
 // CORS configuration - must allow credentials for Clerk JWT
+const ALLOWED_ORIGINS = [
+  "http://localhost:3000",
+  "https://worthy-smile-production.up.railway.app",
+  "https://notebooklm-client-production.up.railway.app",
+  process.env.CLIENT_URL,
+].filter(Boolean)
+
+console.log("🔐 CORS allowed origins:", ALLOWED_ORIGINS)
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "https://worthy-smile-production.up.railway.app"
-    ],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true)
+
+      if (ALLOWED_ORIGINS.indexOf(origin) !== -1) {
+        callback(null, true)
+      } else {
+        console.warn(`❌ CORS blocked origin: ${origin}`)
+        callback(new Error("Not allowed by CORS"))
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-  }),
-);
+  })
+)
 
-app.use(express.json());
+app.use(express.json())
 
 // ── Phase 1: Notebook API Routes (Protected) ─────────────────────────────────
 app.use(
@@ -46,8 +62,8 @@ app.use(
   requireAuth,
   extractUserId,
   requireTenant,
-  notebookRoutes,
-);
+  notebookRoutes
+)
 
 // ── Phase 2: Document API Routes (Protected) ─────────────────────────────────
 app.use(
@@ -55,36 +71,36 @@ app.use(
   requireAuth,
   extractUserId,
   requireTenant,
-  documentRoutes,
-);
+  documentRoutes
+)
 
 // ── Phase 3: Chat API Routes (Protected) ─────────────────────────────────────
-app.use("/api/chat", requireAuth, extractUserId, requireTenant, chatRoutes);
+app.use("/api/chat", requireAuth, extractUserId, requireTenant, chatRoutes)
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const storage = multer.memoryStorage()
+const upload = multer({ storage: storage })
 
 // ── Shared singletons ────────────────────────────────────────────────────────
 
 const qdrant = new QdrantClient({
   url: process.env.QDRANT_URL?.trim() || "http://localhost:6333",
-});
+})
 
 const llm = new ChatGroq({
   model: "llama-3.3-70b-versatile",
   temperature: 0.3,
   apiKey: process.env.GROQ_API_KEY,
   streaming: true,
-});
+})
 
 // Redis configuration for health checks (lazy initialization)
-let redisConfig = null;
+let redisConfig = null
 
 function getRedisConfig() {
   if (!redisConfig) {
-    const host = process.env.REDISHOST || process.env.REDIS_HOST;
-    const port = process.env.REDISPORT || process.env.REDIS_PORT;
-    const password = process.env.REDISPASSWORD || process.env.REDIS_PASSWORD;
+    const host = process.env.REDISHOST || process.env.REDIS_HOST
+    const port = process.env.REDISPORT || process.env.REDIS_PORT
+    const password = process.env.REDISPASSWORD || process.env.REDIS_PASSWORD
 
     // Only configure if BOTH host and port are explicitly set
     if (host && port) {
@@ -93,21 +109,21 @@ function getRedisConfig() {
           host: host,
           port: parseInt(port, 10),
         },
-      };
+      }
       // Only add password if it exists (some Redis instances don't require auth)
       if (password && password.trim() !== "") {
-        redisConfig.connection.password = password;
+        redisConfig.connection.password = password
       }
       console.log("✓ Redis configured:", {
         host,
         port: parseInt(port),
-        hasPassword: !!redisConfig.connection.password
-      });
+        hasPassword: !!redisConfig.connection.password,
+      })
     } else {
-      console.log("⚠️  Redis not configured - running without job queue");
+      console.log("⚠️  Redis not configured - running without job queue")
     }
   }
-  return redisConfig;
+  return redisConfig
 }
 
 // ── Upload ───────────────────────────────────────────────────────────────────
@@ -117,68 +133,68 @@ app.post(
   upload.array("pdf"),
   asyncHandler(async (req, res) => {
     if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ err: "No file found" });
+      return res.status(400).json({ err: "No file found" })
     }
 
     const uploaded_files = await Promise.all(
-      req.files.map((file) => uploadPDF(file.buffer, file.originalname)),
-    );
-    const fileIds = uploaded_files.map((f) => f.$id);
+      req.files.map((file) => uploadPDF(file.buffer, file.originalname))
+    )
+    const fileIds = uploaded_files.map((f) => f.$id)
 
-    console.log("Uploaded and Queuing File IDs:", fileIds);
-    await addToQueue(fileIds);
+    console.log("Uploaded and Queuing File IDs:", fileIds)
+    await addToQueue(fileIds)
 
-    res.json({ message: "PDFs queued for processing", fileIds });
-  }),
-);
+    res.json({ message: "PDFs queued for processing", fileIds })
+  })
+)
 
 // ── Search ───────────────────────────────────────────────────────────────────
-console.log("DEBUG ENV:", process.env.VECTOR_DIMENSION);
-logVectorConfig();
+console.log("DEBUG ENV:", process.env.VECTOR_DIMENSION)
+logVectorConfig()
 
 app.post(
   "/search",
   asyncHandler(async (req, res) => {
-    const { query, limit = 5 } = req.body;
-    if (!query) return res.status(400).json({ error: "query is required" });
+    const { query, limit = 5 } = req.body
+    if (!query) return res.status(400).json({ error: "query is required" })
 
-    const queryVector = await embedQuery(query);
+    const queryVector = await embedQuery(query)
     const searchResults = await qdrant.search(EMBED_CONFIG.COLLECTION_NAME, {
       vector: queryVector,
       limit: parseInt(limit),
       with_payload: true,
-    });
+    })
 
     const passages = searchResults.map((r) => ({
       content: r.payload.pageContent,
       metadata: r.payload.metadata,
       score: r.score,
-    }));
+    }))
 
-    res.json({ passages });
-  }),
-);
+    res.json({ passages })
+  })
+)
 
 // ── Chat (basic RAG, keep for backward compat) ───────────────────────────────
 
 app.post(
   "/chat",
   asyncHandler(async (req, res) => {
-    const { message } = req.body;
-    if (!message) return res.status(400).json({ error: "message is required" });
+    const { message } = req.body
+    if (!message) return res.status(400).json({ error: "message is required" })
 
-    const queryVector = await embedQuery(message);
+    const queryVector = await embedQuery(message)
     const searchResults = await qdrant.search(EMBED_CONFIG.COLLECTION_NAME, {
       vector: queryVector,
       limit: 4,
       with_payload: true,
-    });
+    })
 
     const results = searchResults.map((r) => ({
       pageContent: r.payload.pageContent,
       metadata: r.payload.metadata,
-    }));
-    const context = results.map((r) => r.pageContent).join("\n\n---\n\n");
+    }))
+    const context = results.map((r) => r.pageContent).join("\n\n---\n\n")
 
     const prompt = `You are a helpful assistant that answers questions based on the provided document context. If the context doesn't contain relevant information, say so honestly.
 
@@ -187,9 +203,9 @@ ${context}
 
 Question: ${message}
 
-Provide a clear, well-structured answer based on the context above.`;
+Provide a clear, well-structured answer based on the context above.`
 
-    const response = await llm.invoke(prompt);
+    const response = await llm.invoke(prompt)
 
     res.json({
       reply: response.content,
@@ -197,9 +213,9 @@ Provide a clear, well-structured answer based on the context above.`;
         content: r.pageContent.substring(0, 200) + "...",
         metadata: r.metadata,
       })),
-    });
-  }),
-);
+    })
+  })
+)
 
 // ── Agent (ReAct + SSE streaming) ────────────────────────────────────────────
 
@@ -210,12 +226,12 @@ Rules:
 - If the first search is insufficient, search again with a refined query.
 - Cite sources clearly using [Source N] references in your answer.
 - If documents don't contain the answer, say so honestly — do not hallucinate.
-- Be concise, accurate, and well-structured.`;
+- Be concise, accurate, and well-structured.`
 
 function buildAgentTools(userId) {
   const searchTool = tool(
     async ({ query, limit = 5 }) => {
-      const vector = await embedQuery(query);
+      const vector = await embedQuery(query)
       const results = await qdrant.search(EMBED_CONFIG.COLLECTION_NAME, {
         vector,
         limit,
@@ -223,17 +239,16 @@ function buildAgentTools(userId) {
         filter: {
           must: [{ key: "metadata.userId", match: { value: userId } }],
         },
-      });
+      })
 
-      if (!results.length)
-        return "No relevant content found in your documents.";
+      if (!results.length) return "No relevant content found in your documents."
 
       return results
         .map(
           (r, i) =>
-            `[Source ${i + 1}] score:${r.score.toFixed(3)}\n${r.payload.pageContent}`,
+            `[Source ${i + 1}] score:${r.score.toFixed(3)}\n${r.payload.pageContent}`
         )
-        .join("\n\n---\n\n");
+        .join("\n\n---\n\n")
     },
     {
       name: "search_documents",
@@ -251,62 +266,59 @@ function buildAgentTools(userId) {
           .optional()
           .describe("Results to return (default 5)"),
       }),
-    },
-  );
+    }
+  )
 
-  return [searchTool];
+  return [searchTool]
 }
 
 app.post(
   "/agent",
   asyncHandler(async (req, res) => {
-    const { message, history = [] } = req.body;
+    const { message, history = [] } = req.body
 
     // ── TODO: swap this with your real auth middleware (Clerk, JWT, etc.) ──
-    const userId = req.headers["x-user-id"];
+    const userId = req.headers["x-user-id"]
 
-    if (!message) return res.status(400).json({ error: "message is required" });
-    if (!userId) return res.status(401).json({ error: "unauthorized" });
+    if (!message) return res.status(400).json({ error: "message is required" })
+    if (!userId) return res.status(401).json({ error: "unauthorized" })
 
     // SSE headers
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
+    res.setHeader("Content-Type", "text/event-stream")
+    res.setHeader("Cache-Control", "no-cache")
+    res.setHeader("Connection", "keep-alive")
 
     const agent = createReactAgent({
       llm,
       tools: buildAgentTools(userId),
       prompt: AGENT_SYSTEM_PROMPT,
-    });
+    })
 
-    const formattedHistory = history.map(({ role, content }) => [
-      role,
-      content,
-    ]);
+    const formattedHistory = history.map(({ role, content }) => [role, content])
 
     const stream = await agent.stream(
       { messages: [...formattedHistory, ["human", message]] },
-      { streamMode: "messages" },
-    );
+      { streamMode: "messages" }
+    )
 
-    const sources = [];
+    const sources = []
 
     for await (const [chunk, metadata] of stream) {
       // Capture tool results as sources
       if (chunk.name === "search_documents" && chunk.content) {
-        sources.push(chunk.content.slice(0, 300) + "...");
+        sources.push(chunk.content.slice(0, 300) + "...")
       }
 
       // Stream AI tokens to client
       if (chunk.content && metadata.langgraph_node === "agent") {
-        res.write(`data: ${JSON.stringify({ token: chunk.content })}\n\n`);
+        res.write(`data: ${JSON.stringify({ token: chunk.content })}\n\n`)
       }
     }
 
-    res.write(`data: ${JSON.stringify({ done: true, sources })}\n\n`);
-    res.end();
-  }),
-);
+    res.write(`data: ${JSON.stringify({ done: true, sources })}\n\n`)
+    res.end()
+  })
+)
 
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -323,58 +335,59 @@ app.get(
         qdrant: "unknown",
         redis: "unknown",
       },
-    };
+    }
 
     // Check database
     try {
-      await prisma.$queryRaw`SELECT 1`;
-      health.services.database = "up";
+      await prisma.$queryRaw`SELECT 1`
+      health.services.database = "up"
     } catch (error) {
-      health.services.database = "down";
-      health.status = "unhealthy";
+      health.services.database = "down"
+      health.status = "unhealthy"
     }
 
     // Check Qdrant
     try {
-      await qdrant.getCollections();
-      health.services.qdrant = "up";
+      await qdrant.getCollections()
+      health.services.qdrant = "up"
     } catch (error) {
-      health.services.qdrant = "down";
-      health.status = "unhealthy";
+      health.services.qdrant = "down"
+      health.status = "unhealthy"
     }
 
     // Check Redis (if configured)
-    const redisCfg = getRedisConfig();
+    const redisCfg = getRedisConfig()
     if (redisCfg) {
       try {
-        const Redis = (await import("ioredis")).default;
-        const redis = new Redis(redisCfg.connection);
-        await redis.ping();
-        await redis.quit();
-        health.services.redis = "up";
+        const Redis = (await import("ioredis")).default
+        const redis = new Redis(redisCfg.connection)
+        await redis.ping()
+        await redis.quit()
+        health.services.redis = "up"
       } catch (error) {
-        health.services.redis = "down";
+        health.services.redis = "down"
         // Don't mark as unhealthy if Redis is optional
-        console.warn("Redis health check failed:", error.message);
+        console.warn("Redis health check failed:", error.message)
       }
     } else {
-      health.services.redis = "not configured";
+      health.services.redis = "not configured"
     }
 
     // Consider app healthy even without Redis (it's optional for basic functionality)
     const statusCode =
       health.services.database === "up" && health.services.qdrant === "up"
         ? 200
-        : 503;
-    res.status(statusCode).json(health);
-  }),
-);
+        : 503
+    res.status(statusCode).json(health)
+  })
+)
 
 // ── Start Server ─────────────────────────────────────────────────────────────
 
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 8000
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server started on PORT: ${PORT}`);
-  console.log(`   Health check: http://localhost:${PORT}/health`);
-});
+// Bind to 0.0.0.0 for Railway/container deployment
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server started on PORT: ${PORT}`)
+  console.log(`   Health check: http://localhost:${PORT}/health`)
+})

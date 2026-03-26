@@ -2,7 +2,7 @@ import { useAuth } from "@clerk/nextjs"
 import axios from "axios"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-
+console.log("Axios API_BASE_URL is:", API_BASE_URL)
 /**
  * Create an authenticated Axios instance
  * This should be used in Client Components only
