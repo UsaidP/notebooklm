@@ -84,6 +84,7 @@ const upload = multer({ storage: storage })
 
 const qdrant = new QdrantClient({
   url: process.env.QDRANT_URL?.trim() || "http://localhost:6333",
+  checkCompatibility: false,
 })
 
 const llm = new ChatGroq({

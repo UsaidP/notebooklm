@@ -2,7 +2,8 @@
 
 # 1. Apply database migrations to the production database
 echo "Applying database migrations..."
-npx prisma migrate deploy
+npx prisma db push --accept-data-loss
+#npx prisma migrate deploy
 
 # 2. Start the worker process in the background
 echo "Starting Worker..."
