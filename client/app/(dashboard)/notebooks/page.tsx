@@ -3,55 +3,49 @@ import { Plus } from "lucide-react"
 import { redirect } from "next/navigation"
 import { CreateNotebookButton } from "@/components/CreateNotebookButton"
 import { NotebookCard } from "@/components/notebook/NotebookCard"
-import { prisma } from "@/lib/prisma"
 
-/**
- * Notebook List Page (React Server Component)
- * Displays all notebooks for the authenticated user
- */
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 interface NotebookWithCounts {
   id: string
   title: string
   description: string | null
-  createdAt: Date
-  updatedAt: Date
-  userId: string
-  _count: {
+  createdAt: string
+  updatedAt: string
+  _count?: {
     documents: number
     chatSessions: number
   }
 }
 
-async function getNotebooks(userId: string): Promise<NotebookWithCounts[]> {
-  // Find internal user by clerkUserId
-  const user = await prisma.user.findUnique({
-    where: { clerkUserId: userId },
+/**
+ * Fetch notebooks from backend API with Clerk JWT token
+ */
+async function getNotebooks(): Promise<NotebookWithCounts[]> {
+  const { getToken } = await auth()
+  const token = await getToken()
+
+  const res = await fetch(`${API_BASE_URL}/api/notebooks`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    cache: "no-store",
   })
 
-  if (!user) {
-    return []
+  if (!res.ok) {
+    if (res.status === 401) {
+      redirect("/sign-in")
+    }
+    throw new Error(`Failed to fetch notebooks: ${res.status}`)
   }
 
-  return prisma.notebook.findMany({
-    where: { userId: user.id },
-    orderBy: { updatedAt: "desc" },
-    include: {
-      _count: {
-        select: { documents: true, chatSessions: true },
-      },
-    },
-  }) as Promise<NotebookWithCounts[]>
+  const data = await res.json()
+  return data.data || []
 }
 
 export default async function NotebooksPage() {
-  const { userId } = await auth()
-
-  if (!userId) {
-    redirect("/sign-in")
-  }
-
-  const notebooks = await getNotebooks(userId)
+  const notebooks = await getNotebooks()
 
   return (
     <div

@@ -28,7 +28,10 @@ const app = express();
 // CORS configuration - must allow credentials for Clerk JWT
 app.use(
   cors({
-    origin: "*",
+    origin: [
+      "http://localhost:3000",
+      "https://worthy-smile-production.up.railway.app"
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
