@@ -159,14 +159,17 @@ export default function SettingsPage() {
     }
   }
 
-  // Format date
-  const formatDate = (date?: Date | null) => {
+  // Format date (handles Date objects, ISO strings, or timestamps from Clerk)
+  const formatDate = (date?: Date | string | number | null) => {
     if (!date) return "Not available"
+    const dateObj = typeof date === 'string' || typeof date === 'number'
+      ? new Date(date)
+      : date
     return new Intl.DateTimeFormat("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
-    }).format(date)
+    }).format(dateObj)
   }
 
   if (!isLoaded) {

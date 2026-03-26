@@ -10,8 +10,8 @@ export interface Notebook {
   id: string
   title: string
   description: string | null
-  createdAt: string
-  updatedAt: string
+  createdAt: Date
+  updatedAt: Date
   _count?: {
     documents: number
     chatSessions: number

@@ -21,8 +21,8 @@ export interface Document {
   chunkCount: number | null
   sizeBytes: number
   notebookId: string
-  createdAt: string
-  updatedAt: string
+  createdAt: Date
+  updatedAt: Date
 }
 
 async function fetchDocuments(

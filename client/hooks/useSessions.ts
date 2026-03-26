@@ -9,8 +9,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 export interface ChatSession {
   id: string
   title: string | null
-  createdAt: string
-  updatedAt: string
+  createdAt: Date
+  updatedAt: Date
 }
 
 export interface ChatMessage {
@@ -18,7 +18,7 @@ export interface ChatMessage {
   role: string
   content: string
   sources: any | null
-  createdAt: string
+  createdAt: Date
 }
 
 export interface SessionWithMessages {
