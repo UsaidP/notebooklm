@@ -26,6 +26,24 @@ export interface SessionWithMessages {
   messages: ChatMessage[]
 }
 
+/**
+ * Parse date strings from API to Date objects
+ */
+function parseChatSessionDates(data: any): ChatSession {
+  return {
+    ...data,
+    createdAt: new Date(data.createdAt),
+    updatedAt: new Date(data.updatedAt),
+  }
+}
+
+function parseChatMessageDates(data: any): ChatMessage {
+  return {
+    ...data,
+    createdAt: new Date(data.createdAt),
+  }
+}
+
 // Fetch chat history for a notebook
 async function fetchHistory(
   notebookId: string,
@@ -37,7 +55,11 @@ async function fetchHistory(
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     }
   )
-  return res.data
+  const data = res.data
+  return {
+    session: parseChatSessionDates(data.session),
+    messages: data.messages.map(parseChatMessageDates),
+  }
 }
 
 // Post a message to a notebook chat
@@ -53,7 +75,7 @@ async function postMessage(
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     }
   )
-  return res.data
+  return parseChatMessageDates(res.data)
 }
 
 // Clear chat history for a notebook

@@ -18,11 +18,22 @@ export interface Notebook {
   }
 }
 
+/**
+ * Parse date strings from API to Date objects
+ */
+function parseNotebookDates(data: any): Notebook {
+  return {
+    ...data,
+    createdAt: new Date(data.createdAt),
+    updatedAt: new Date(data.updatedAt),
+  }
+}
+
 async function fetchNotebooks(token: string | null): Promise<Notebook[]> {
   const res = await axios.get(`${API_BASE_URL}/api/notebooks`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
-  return res.data.data
+  return res.data.data.map(parseNotebookDates)
 }
 
 async function fetchNotebook(
@@ -32,7 +43,7 @@ async function fetchNotebook(
   const res = await axios.get(`${API_BASE_URL}/api/notebooks/${id}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
-  return res.data.data
+  return parseNotebookDates(res.data.data)
 }
 
 export function useNotebooks() {

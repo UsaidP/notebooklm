@@ -25,6 +25,17 @@ export interface Document {
   updatedAt: Date
 }
 
+/**
+ * Parse date strings from API to Date objects
+ */
+function parseDocumentDates(data: any): Document {
+  return {
+    ...data,
+    createdAt: new Date(data.createdAt),
+    updatedAt: new Date(data.updatedAt),
+  }
+}
+
 async function fetchDocuments(
   notebookId: string,
   token: string | null
@@ -35,7 +46,7 @@ async function fetchDocuments(
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     }
   )
-  return res.data.data
+  return res.data.data.map(parseDocumentDates)
 }
 
 export function useDocuments(notebookId: string) {

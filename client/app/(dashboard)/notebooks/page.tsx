@@ -44,7 +44,12 @@ async function getNotebooks(): Promise<NotebookWithCounts[]> {
     }
 
     const data = await res.json()
-    return data.data || []
+    // Parse date strings to Date objects
+    return (data.data || []).map((notebook: any) => ({
+      ...notebook,
+      createdAt: new Date(notebook.createdAt),
+      updatedAt: new Date(notebook.updatedAt),
+    }))
   } catch (error) {
     // Catches network errors (e.g., if the backend is completely unreachable)
     console.error("Failed to fetch notebooks:", error)
