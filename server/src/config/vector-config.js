@@ -7,7 +7,7 @@
 // Embedding model configuration
 export const EMBED_CONFIG = {
   // API endpoint for embeddings
-  API_URL: process.env.EMBED_API_URL || "https://kimbery-grippier-renownedly.ngrok-free.dev/v1/embeddings",
+  API_URL: process.env.EMBED_API_URL || "https://kimbery-grippier-renownedly.ngrok-free.dev/embed",
 
   // Model identifier
   MODEL: process.env.EMBED_MODEL || "pplx-embed-v1",

@@ -9,7 +9,7 @@ import {
 } from "./src/services/qdrant.js";
 import { processPDFs } from "./src/workers/pdf-worker.js";
 
-const BATCH_SIZE = 50; // Reduced for better progress updates
+const BATCH_SIZE = 32; // Reduced to prevent OOM on large documents
 
 // Log configuration on startup
 logVectorConfig();

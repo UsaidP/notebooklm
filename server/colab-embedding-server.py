@@ -19,46 +19,75 @@ print("Model loaded successfully!")
 
 app = Flask(__name__)
 
-def get_embedding(text, prompt_type="passage"):
-    if prompt_type == "passage":
-        text = f"Represent this sentence for searching relevant passages: {text}"
-    else:
-        text = f"Represent this question for searching relevant passages: {text}"
+def get_embeddings_batch(texts, prompt_type="passage"):
+    """Process multiple texts in a single GPU batch for efficiency"""
+    if isinstance(texts, str):
+        texts = [texts]
     
-    inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512).to(model.device)
+    # Prepare all texts with prompts
+    processed_texts = []
+    for text in texts:
+        if prompt_type == "passage":
+            text = f"Represent this sentence for searching relevant passages: {text}"
+        else:
+            text = f"Represent this question for searching relevant passages: {text}"
+        processed_texts.append(text)
+    
+    # Tokenize all texts at once (batch processing)
+    inputs = tokenizer(
+        processed_texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=512
+    ).to(model.device)
+    
+    print(f"  Processing batch of {len(texts)} texts with shape: {inputs['input_ids'].shape}")
     
     with torch.no_grad():
         outputs = model(**inputs)
-        cls_embedding = outputs.last_hidden_state[:, 0, :]
-        normalized = torch.nn.functional.normalize(cls_embedding, p=2, dim=1)
+        cls_embeddings = outputs.last_hidden_state[:, 0, :]  # [batch_size, hidden_dim]
+        normalized = torch.nn.functional.normalize(cls_embeddings, p=2, dim=1)
     
-    return normalized.cpu().numpy()[0].tolist()
+    # Convert to list of embeddings
+    embeddings = normalized.cpu().numpy().tolist()
+    
+    # Format response
+    result = []
+    for i, emb in enumerate(embeddings):
+        result.append({"embedding": emb, "index": i})
+        print(f"  ✓ {i+1}/{len(embeddings)} - dim: {len(emb)}")
+    
+    return result
 
+@app.route("/embed", methods=["POST"])
 @app.route("/v1/embeddings", methods=["POST"])
 def embed():
     try:
         data = request.json
         texts = data.get("input", [])
         prompt_name = data.get("prompt_name", "passage")
+        model_param = data.get("model", "pplx-embed-v1")
         
         if isinstance(texts, str):
             texts = [texts]
         
-        print(f"Embedding {len(texts)} text(s)...")
+        print(f"\n📐 Embedding endpoint called:")
+        print(f"   Texts: {len(texts)}")
+        print(f"   Prompt: {prompt_name}")
+        print(f"   Model: {model_param}")
         
-        embeddings = []
-        for i, text in enumerate(texts):
-            emb = get_embedding(text, prompt_type=prompt_name)
-            embeddings.append({"embedding": emb, "index": i})
-            print(f"  ✓ {i+1}/{len(texts)} - dim: {len(emb)}")
+        # Process all texts in a single GPU batch
+        embeddings = get_embeddings_batch(texts, prompt_type=prompt_name)
         
         return jsonify({
             "data": embeddings,
-            "model": "pplx-embed-v1-0.6b",
+            "model": model_param,
             "usage": {"prompt_tokens": 0, "total_tokens": 0}
         })
-    
+        
     except Exception as e:
+        print(f"❌ Error in embed endpoint:")
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
