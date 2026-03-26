@@ -1,13 +1,17 @@
 #!/bin/sh
 
-# Start the worker process in the background
+# 1. Apply database migrations to the production database
+echo "Applying database migrations..."
+npx prisma migrate deploy
+
+# 2. Start the worker process in the background
 echo "Starting Worker..."
-npm run start:worker &
+npm run start:worker & 
 
-# Start the server process in the background
+# 3. Start the server process in the background
 echo "Starting Server..."
-npm run start:api &
+npm run start:server &
 
-# Wait for any process to exit. If either crashes, the container restarts.
+# Wait for any process to exit.
 wait -n
 exit $?
