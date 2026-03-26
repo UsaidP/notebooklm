@@ -4,6 +4,7 @@ import { EMBED_CONFIG, getCollectionConfig, validateVectorDimension } from "../c
 
 const client = new QdrantClient({
   url: process.env.QDRANT_URL?.trim() || "http://localhost:6333",
+  checkCompatibility: false,
   apiKey: process.env.QDRANT_KEY,
 });
 
