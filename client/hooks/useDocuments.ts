@@ -4,7 +4,9 @@ import { useAuth } from "@clerk/nextjs"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import axios from "axios"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const API_BASE_URL = typeof window !== "undefined"
+  ? "/api/proxy"
+  : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000")
 
 export type DocumentStatus =
   | "PENDING"

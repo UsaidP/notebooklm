@@ -1,29 +1,37 @@
 import { useAuth } from "@clerk/nextjs"
 import axios from "axios"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-console.log("Axios API_BASE_URL is:", API_BASE_URL)
 /**
- * Create an authenticated Axios instance
- * This should be used in Client Components only
+ * Get the API base URL.
+ * - In the browser: use /api/proxy (routes through Next.js, works in Codespaces/any host)
+ * - Server-side: use INTERNAL_API_URL (direct container-to-container)
+ */
+function getApiBaseUrl(): string {
+  if (typeof window !== "undefined") {
+    // Browser: proxy through Next.js so the URL is always relative to the current host
+    return "/api/proxy"
+  }
+  // SSR: direct internal URL
+  return process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+}
+
+const API_BASE_URL = getApiBaseUrl()
+
+/**
+ * Create an authenticated Axios instance (Client Components only)
  */
 export function useApiClient() {
   const { getToken } = useAuth()
 
   const client = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-      "Content-Type": "application/json",
-    },
+    baseURL: typeof window !== "undefined" ? "/api/proxy" : API_BASE_URL,
+    headers: { "Content-Type": "application/json" },
   })
 
-  // Request interceptor to add auth token
   client.interceptors.request.use(async (config) => {
     try {
       const token = await getToken()
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`
-      }
+      if (token) config.headers.Authorization = `Bearer ${token}`
     } catch (error) {
       console.error("Failed to get auth token:", error)
     }
@@ -34,30 +42,23 @@ export function useApiClient() {
 }
 
 /**
- * Server-side API client (for Server Components)
- * Uses the session token from cookies
+ * Server-side API client (Server Components)
  */
 export async function getServerApiClient(sessionToken: string | null) {
   const client = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-      "Content-Type": "application/json",
-    },
+    baseURL: process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+    headers: { "Content-Type": "application/json" },
   })
-
   if (sessionToken) {
     client.defaults.headers.Authorization = `Bearer ${sessionToken}`
   }
-
   return client
 }
 
 /**
- * Simple API client for non-authenticated requests
+ * Simple unauthenticated client
  */
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
 })
