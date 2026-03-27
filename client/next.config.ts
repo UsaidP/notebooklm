@@ -1,19 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  
-  // ADD THIS BLOCK ↓
+
   typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
     ignoreBuildErrors: true,
   },
-  
-  // (Optional) You might also need this if ESLint is failing the build
+
   eslint: {
     ignoreDuringBuilds: true,
   },
+
+  // Proxy /api/* to the backend server container (used by SSR inside Docker)
+  async rewrites() {
+    const apiUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+    return [
+      {
+        source: "/api/backend/:path*",
+        destination: `${apiUrl}/:path*`,
+      },
+    ]
+  },
 }
 
-export default nextConfig; // or module.exports = nextConfig;
+export default nextConfig

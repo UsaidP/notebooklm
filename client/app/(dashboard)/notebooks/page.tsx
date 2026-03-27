@@ -4,7 +4,12 @@ import { redirect } from "next/navigation"
 import { CreateNotebookButton } from "@/components/CreateNotebookButton"
 import { NotebookCard } from "@/components/notebook/NotebookCard"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const API_BASE_URL =
+  (typeof window === "undefined"
+    ? process.env.INTERNAL_API_URL
+    : undefined) ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:8000"
 
 interface NotebookWithCounts {
   id: string

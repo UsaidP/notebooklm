@@ -1,11 +1,33 @@
-# Environment files - MAY CONTAIN SECRETS
+# ── Environment & Secrets ────────────────────────────────────
 .env
 .env.local
 .env.production
+.env.development
 .env*.local
+server/.env
+client/.env
+client/.env.local
 
-# Logs
-logs
+# ── Dependencies ─────────────────────────────────────────────
+node_modules/
+.jspm/
+.pnp
+.pnp.js
+
+# ── Build Outputs ─────────────────────────────────────────────
+dist/
+dist-ssr/
+out/
+build/
+.next/
+client/.next/
+
+# ── Prisma Generated ─────────────────────────────────────────
+server/generated/
+client/generated/
+
+# ── Logs ─────────────────────────────────────────────────────
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -13,27 +35,57 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Dependencies
-node_modules
-.jspm
+# ── OS ───────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# IDE
-.idea
-.vscode
+# ── IDE ───────────────────────────────────────────────────────
+.idea/
+.vscode/
 *.swp
 *.swo
 *~
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 
-# OS
-.DS_Store
-Thumbs.db
+# ── Docker ───────────────────────────────────────────────────
+# (Dockerfiles and docker-compose are intentionally tracked)
 
-# Build outputs
-dist
-dist-ssr
+# ── GSD / Kiro tooling ───────────────────────────────────────
+.gsd/
+.kiro/
+adapters/
+docs/
+scripts/
+
+# ── Misc project-root markdown (auto-generated) ──────────────
+CHANGELOG.md
+GSD-STYLE.md
+model_capabilities.yaml
+VERSION
+DEPLOYMENT.md
+DEPLOYMENT_CHECKLIST.md
+DEPLOYMENT_QUICK_REF.md
+EMBEDDING_FIX_SUMMARY.md
+KAGGLE_SETUP_GUIDE.md
+
+# ── Test & Coverage ───────────────────────────────────────────
+coverage/
+.nyc_output/
+*.lcov
+
+# ── TypeScript ────────────────────────────────────────────────
+*.tsbuildinfo
+
+# ── Misc ─────────────────────────────────────────────────────
 *.local
-.next
-out
-
-# Prisma
-server/generated
+.cache/
+.turbo/
+PROJECT_RULE.md
+.DS_Store

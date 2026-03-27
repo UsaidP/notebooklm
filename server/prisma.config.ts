@@ -8,7 +8,6 @@ export default defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    // Use placeholder for prisma generate (not needed at build time)
-    url: env('DB_URL') || 'postgresql://user:pass@localhost:5432/placeholder',
+    url: env('DATABASE_URL') || env('DB_URL') || 'postgresql://user:pass@localhost:5432/placeholder',
   },
 })
