@@ -4,8 +4,12 @@ import { useAuth } from "@clerk/nextjs"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import axios from "axios"
 
+// In Docker/Codespaces, NEXT_PUBLIC_API_URL is localhost which the browser can't reach,
+// so we proxy through Next.js. On Railway/production it's a real public URL — use directly.
 const API_BASE_URL = typeof window !== "undefined"
-  ? "/api/proxy"
+  ? (process.env.NEXT_PUBLIC_API_URL?.startsWith("http://localhost")
+    ? "/api/proxy"
+    : process.env.NEXT_PUBLIC_API_URL || "/api/proxy")
   : (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000")
 
 export interface Notebook {

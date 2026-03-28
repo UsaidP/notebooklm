@@ -4,8 +4,10 @@ import { useAuth } from "@clerk/nextjs"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 const API_BASE_URL = typeof window !== "undefined"
-  ? "/api/proxy"
-  : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000")
+  ? (process.env.NEXT_PUBLIC_API_URL?.startsWith("http://localhost")
+    ? "/api/proxy"
+    : process.env.NEXT_PUBLIC_API_URL || "/api/proxy")
+  : (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000")
 
 export interface Source {
   documentId: string
